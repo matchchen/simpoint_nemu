@@ -1,0 +1,243 @@
+
+build/gcpt:     file format elf64-littleriscv
+
+
+Disassembly of section .restore.code:
+
+0000000000000000 <boot_decide_vector>:
+   0:	00001437          	lui	s0,0x1
+   4:	f004041b          	addiw	s0,s0,-256
+   8:	00043303          	ld	t1,0(s0) # 1000 <restore_int_vector+0xcfc>
+   c:	0000c3b7          	lui	t2,0xc
+  10:	eef3839b          	addiw	t2,t2,-273
+  14:	00730463          	beq	t1,t2,1c <restore_csr_vector>
+  18:	7e99f06f          	j	a0000 <restore_int_vector+0x9fcfc>
+
+000000000000001c <restore_csr_vector>:
+  1c:	000012b7          	lui	t0,0x1
+  20:	3002829b          	addiw	t0,t0,768
+  24:	30000393          	li	t2,768
+  28:	00339393          	slli	t2,t2,0x3
+  2c:	007283b3          	add	t2,t0,t2
+  30:	0003b303          	ld	t1,0(t2) # c000 <restore_int_vector+0xbcfc>
+  34:	30031073          	csrw	mstatus,t1
+  38:	30100393          	li	t2,769
+  3c:	00339393          	slli	t2,t2,0x3
+  40:	007283b3          	add	t2,t0,t2
+  44:	0003b303          	ld	t1,0(t2)
+  48:	30131073          	csrw	misa,t1
+  4c:	30200393          	li	t2,770
+  50:	00339393          	slli	t2,t2,0x3
+  54:	007283b3          	add	t2,t0,t2
+  58:	0003b303          	ld	t1,0(t2)
+  5c:	30231073          	csrw	medeleg,t1
+  60:	30300393          	li	t2,771
+  64:	00339393          	slli	t2,t2,0x3
+  68:	007283b3          	add	t2,t0,t2
+  6c:	0003b303          	ld	t1,0(t2)
+  70:	30331073          	csrw	mideleg,t1
+  74:	30400393          	li	t2,772
+  78:	00339393          	slli	t2,t2,0x3
+  7c:	007283b3          	add	t2,t0,t2
+  80:	0003b303          	ld	t1,0(t2)
+  84:	30431073          	csrw	mie,t1
+  88:	30500393          	li	t2,773
+  8c:	00339393          	slli	t2,t2,0x3
+  90:	007283b3          	add	t2,t0,t2
+  94:	0003b303          	ld	t1,0(t2)
+  98:	30531073          	csrw	mtvec,t1
+  9c:	30600393          	li	t2,774
+  a0:	00339393          	slli	t2,t2,0x3
+  a4:	007283b3          	add	t2,t0,t2
+  a8:	0003b303          	ld	t1,0(t2)
+  ac:	30631073          	csrw	mcounteren,t1
+  b0:	34000393          	li	t2,832
+  b4:	00339393          	slli	t2,t2,0x3
+  b8:	007283b3          	add	t2,t0,t2
+  bc:	0003b303          	ld	t1,0(t2)
+  c0:	34031073          	csrw	mscratch,t1
+  c4:	34100393          	li	t2,833
+  c8:	00339393          	slli	t2,t2,0x3
+  cc:	007283b3          	add	t2,t0,t2
+  d0:	0003b303          	ld	t1,0(t2)
+  d4:	34131073          	csrw	mepc,t1
+  d8:	34200393          	li	t2,834
+  dc:	00339393          	slli	t2,t2,0x3
+  e0:	007283b3          	add	t2,t0,t2
+  e4:	0003b303          	ld	t1,0(t2)
+  e8:	34231073          	csrw	mcause,t1
+  ec:	34300393          	li	t2,835
+  f0:	00339393          	slli	t2,t2,0x3
+  f4:	007283b3          	add	t2,t0,t2
+  f8:	0003b303          	ld	t1,0(t2)
+  fc:	34331073          	csrw	mtval,t1
+ 100:	34400393          	li	t2,836
+ 104:	00339393          	slli	t2,t2,0x3
+ 108:	007283b3          	add	t2,t0,t2
+ 10c:	0003b303          	ld	t1,0(t2)
+ 110:	34431073          	csrw	mip,t1
+ 114:	3a000393          	li	t2,928
+ 118:	00339393          	slli	t2,t2,0x3
+ 11c:	007283b3          	add	t2,t0,t2
+ 120:	0003b303          	ld	t1,0(t2)
+ 124:	3a031073          	csrw	pmpcfg0,t1
+ 128:	3b000393          	li	t2,944
+ 12c:	00339393          	slli	t2,t2,0x3
+ 130:	007283b3          	add	t2,t0,t2
+ 134:	0003b303          	ld	t1,0(t2)
+ 138:	3b031073          	csrw	pmpaddr0,t1
+ 13c:	3b100393          	li	t2,945
+ 140:	00339393          	slli	t2,t2,0x3
+ 144:	007283b3          	add	t2,t0,t2
+ 148:	0003b303          	ld	t1,0(t2)
+ 14c:	3b131073          	csrw	pmpaddr1,t1
+ 150:	3b200393          	li	t2,946
+ 154:	00339393          	slli	t2,t2,0x3
+ 158:	007283b3          	add	t2,t0,t2
+ 15c:	0003b303          	ld	t1,0(t2)
+ 160:	3b231073          	csrw	pmpaddr2,t1
+ 164:	3b300393          	li	t2,947
+ 168:	00339393          	slli	t2,t2,0x3
+ 16c:	007283b3          	add	t2,t0,t2
+ 170:	0003b303          	ld	t1,0(t2)
+ 174:	3b331073          	csrw	pmpaddr3,t1
+ 178:	10500393          	li	t2,261
+ 17c:	00339393          	slli	t2,t2,0x3
+ 180:	007283b3          	add	t2,t0,t2
+ 184:	0003b303          	ld	t1,0(t2)
+ 188:	10531073          	csrw	stvec,t1
+ 18c:	10600393          	li	t2,262
+ 190:	00339393          	slli	t2,t2,0x3
+ 194:	007283b3          	add	t2,t0,t2
+ 198:	0003b303          	ld	t1,0(t2)
+ 19c:	10631073          	csrw	scounteren,t1
+ 1a0:	14000393          	li	t2,320
+ 1a4:	00339393          	slli	t2,t2,0x3
+ 1a8:	007283b3          	add	t2,t0,t2
+ 1ac:	0003b303          	ld	t1,0(t2)
+ 1b0:	14031073          	csrw	sscratch,t1
+ 1b4:	14100393          	li	t2,321
+ 1b8:	00339393          	slli	t2,t2,0x3
+ 1bc:	007283b3          	add	t2,t0,t2
+ 1c0:	0003b303          	ld	t1,0(t2)
+ 1c4:	14131073          	csrw	sepc,t1
+ 1c8:	14200393          	li	t2,322
+ 1cc:	00339393          	slli	t2,t2,0x3
+ 1d0:	007283b3          	add	t2,t0,t2
+ 1d4:	0003b303          	ld	t1,0(t2)
+ 1d8:	14231073          	csrw	scause,t1
+ 1dc:	14300393          	li	t2,323
+ 1e0:	00339393          	slli	t2,t2,0x3
+ 1e4:	007283b3          	add	t2,t0,t2
+ 1e8:	0003b303          	ld	t1,0(t2)
+ 1ec:	14331073          	csrw	stval,t1
+ 1f0:	18000393          	li	t2,384
+ 1f4:	00339393          	slli	t2,t2,0x3
+ 1f8:	007283b3          	add	t2,t0,t2
+ 1fc:	0003b303          	ld	t1,0(t2)
+ 200:	18031073          	csrw	satp,t1
+ 204:	300022f3          	csrr	t0,mstatus
+ 208:	00800313          	li	t1,8
+ 20c:	005373b3          	and	t2,t1,t0
+ 210:	00439393          	slli	t2,t2,0x4
+ 214:	3003a073          	csrs	mstatus,t2
+ 218:	30033073          	csrc	mstatus,t1
+ 21c:	000022b7          	lui	t0,0x2
+ 220:	8002829b          	addiw	t0,t0,-2048
+ 224:	00843903          	ld	s2,8(s0)
+ 228:	00b91313          	slli	t1,s2,0xb
+ 22c:	3002b073          	csrc	mstatus,t0
+ 230:	30032073          	csrs	mstatus,t1
+ 234:	000062b7          	lui	t0,0x6
+ 238:	3002a073          	csrs	mstatus,t0
+ 23c:	00300393          	li	t2,3
+ 240:	00339393          	slli	t2,t2,0x3
+ 244:	007283b3          	add	t2,t0,t2
+ 248:	0003b303          	ld	t1,0(t2)
+ 24c:	00331073          	fscsr	t1
+ 250:	380042b7          	lui	t0,0x38004
+ 254:	01843303          	ld	t1,24(s0)
+ 258:	0062b023          	sd	t1,0(t0) # 38004000 <restore_int_vector+0x38003cfc>
+ 25c:	3800c2b7          	lui	t0,0x3800c
+ 260:	ff82829b          	addiw	t0,t0,-8
+ 264:	01043303          	ld	t1,16(s0)
+ 268:	0062b023          	sd	t1,0(t0) # 3800c000 <restore_int_vector+0x3800bcfc>
+
+000000000000026c <restore_float_vector>:
+ 26c:	00001137          	lui	sp,0x1
+ 270:	1001011b          	addiw	sp,sp,256
+ 274:	00013007          	fld	ft0,0(sp) # 1000 <restore_int_vector+0xcfc>
+ 278:	00813087          	fld	ft1,8(sp)
+ 27c:	01013107          	fld	ft2,16(sp)
+ 280:	01813187          	fld	ft3,24(sp)
+ 284:	02013207          	fld	ft4,32(sp)
+ 288:	02813287          	fld	ft5,40(sp)
+ 28c:	03013307          	fld	ft6,48(sp)
+ 290:	03813387          	fld	ft7,56(sp)
+ 294:	04013407          	fld	fs0,64(sp)
+ 298:	04813487          	fld	fs1,72(sp)
+ 29c:	05013507          	fld	fa0,80(sp)
+ 2a0:	05813587          	fld	fa1,88(sp)
+ 2a4:	06013607          	fld	fa2,96(sp)
+ 2a8:	06813687          	fld	fa3,104(sp)
+ 2ac:	07013707          	fld	fa4,112(sp)
+ 2b0:	07813787          	fld	fa5,120(sp)
+ 2b4:	08013807          	fld	fa6,128(sp)
+ 2b8:	08813887          	fld	fa7,136(sp)
+ 2bc:	09013907          	fld	fs2,144(sp)
+ 2c0:	09813987          	fld	fs3,152(sp)
+ 2c4:	0a013a07          	fld	fs4,160(sp)
+ 2c8:	0a813a87          	fld	fs5,168(sp)
+ 2cc:	0b013b07          	fld	fs6,176(sp)
+ 2d0:	0b813b87          	fld	fs7,184(sp)
+ 2d4:	0c013c07          	fld	fs8,192(sp)
+ 2d8:	0c813c87          	fld	fs9,200(sp)
+ 2dc:	0d013d07          	fld	fs10,208(sp)
+ 2e0:	0d813d87          	fld	fs11,216(sp)
+ 2e4:	0e013e07          	fld	ft8,224(sp)
+ 2e8:	0e813e87          	fld	ft9,232(sp)
+ 2ec:	0f013f07          	fld	ft10,240(sp)
+ 2f0:	0f813f87          	fld	ft11,248(sp)
+
+00000000000002f4 <restore_pc_vector>:
+ 2f4:	000012b7          	lui	t0,0x1
+ 2f8:	2002829b          	addiw	t0,t0,512
+ 2fc:	0002b283          	ld	t0,0(t0) # 1000 <restore_int_vector+0xcfc>
+ 300:	34129073          	csrw	mepc,t0
+
+0000000000000304 <restore_int_vector>:
+ 304:	00001137          	lui	sp,0x1
+ 308:	00813083          	ld	ra,8(sp) # 1008 <restore_int_vector+0xd04>
+ 30c:	01813183          	ld	gp,24(sp)
+ 310:	02013203          	ld	tp,32(sp)
+ 314:	02813283          	ld	t0,40(sp)
+ 318:	03013303          	ld	t1,48(sp)
+ 31c:	03813383          	ld	t2,56(sp)
+ 320:	04013403          	ld	s0,64(sp)
+ 324:	04813483          	ld	s1,72(sp)
+ 328:	05013503          	ld	a0,80(sp)
+ 32c:	05813583          	ld	a1,88(sp)
+ 330:	06013603          	ld	a2,96(sp)
+ 334:	06813683          	ld	a3,104(sp)
+ 338:	07013703          	ld	a4,112(sp)
+ 33c:	07813783          	ld	a5,120(sp)
+ 340:	08013803          	ld	a6,128(sp)
+ 344:	08813883          	ld	a7,136(sp)
+ 348:	09013903          	ld	s2,144(sp)
+ 34c:	09813983          	ld	s3,152(sp)
+ 350:	0a013a03          	ld	s4,160(sp)
+ 354:	0a813a83          	ld	s5,168(sp)
+ 358:	0b013b03          	ld	s6,176(sp)
+ 35c:	0b813b83          	ld	s7,184(sp)
+ 360:	0c013c03          	ld	s8,192(sp)
+ 364:	0c813c83          	ld	s9,200(sp)
+ 368:	0d013d03          	ld	s10,208(sp)
+ 36c:	0d813d83          	ld	s11,216(sp)
+ 370:	0e013e03          	ld	t3,224(sp)
+ 374:	0e813e83          	ld	t4,232(sp)
+ 378:	0f013f03          	ld	t5,240(sp)
+ 37c:	0f813f83          	ld	t6,248(sp)
+ 380:	01013103          	ld	sp,16(sp)
+ 384:	30200073          	mret
+ 388:	0000                	unimp
+	...
