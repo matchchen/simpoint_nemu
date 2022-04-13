@@ -121,6 +121,7 @@ void csr_read(rtlreg_t *dest, uint32_t addr) {
 
 void csr_write(uint32_t addr, rtlreg_t *src) {
   word_t *dest = csr_decode(addr);
+  Log("!!!csr_write value: 0x%llx",*src);
   if (dest == (void *)sstatus) {
     mstatus->val = (mstatus->val & ~SSTATUS_WMASK) | (*src & SSTATUS_WMASK);
   } else if (dest == (void *)sie) {
@@ -149,6 +150,10 @@ void csr_write(uint32_t addr, rtlreg_t *src) {
     frm->val = ((*src)>>5) & FRM_MASK;
   } else {
     *dest = *src;
+
+    if (dest == (void *)mcause) {
+      Log("!!!mcause = 0x%llx",*src);
+    }
 
     if (dest == (void *)mstatus) {
         mstatus->sxl = 2;
