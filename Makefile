@@ -73,6 +73,7 @@ CFLAGS   += -O2 -MMD -Wno-format -Wall \
 			-lstdc++fs \
 			-Werror \
 			-ggdb3 $(INCLUDES) \
+			-DCOMP_TIME_CSR \
             -D__ENGINE_$(ENGINE)__ \
             -D__SIMPOINT \
 	    -DFLAT_CPTPATH \
