@@ -192,8 +192,12 @@ static inline make_EHelper(branch) {
 }
   
 static inline make_EHelper(system) {
+  //Log("!!!system instr:funct3=0x%llx",s->isa.instr.i.funct3);
   switch (s->isa.instr.i.funct3) {
-    EX(0, priv)  IDEX(1, csr, csrrw)  IDEX(2, csr, csrrs)  IDEX(3, csr, csrrc)
+    EX(0, priv)  IDEX(1, csr, csrrw)  
+    case 2: set_width(s, 0); decode_csr(s); exec_csrrs(s); break;
+    //IDEX(2, csr, csrrs)  
+    IDEX(3, csr, csrrc)
     EMPTY(4)     IDEX(5, csri, csrrwi)IDEX(6, csri, csrrsi)IDEX(7, csri, csrrci)
   }
 }
