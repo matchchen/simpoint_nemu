@@ -12,6 +12,6 @@ base on nemu cpt-bk branch, for the simpoint purpose.
 7) resolve fscsr problem when resume checkpoint
 ## v0.2
 1) remove middle files 
-2) remove x86 and mips arch directory
+2) remove x86 and mips arch directories
 3) fix a take checkpoint problem
-4) support access mtime csr for compatible with other simulator or FPGA
+4) support accessing mtime csr for compatibling with other simulators or FPGA
