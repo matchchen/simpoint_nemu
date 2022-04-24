@@ -275,17 +275,13 @@ bool Serializer::shouldTakeCpt(uint64_t num_insts) {
 
   if (xpoint_profiling_started && profiling_state == SimpointCheckpointing) {
       uint64_t next_point = ((simpoint2Weights.begin()->first >= 1) ? (simpoint2Weights.begin()->first - 1) : 0) * intervalSize ;//+ 100000;
-      #if 0
-      Log("num_insts=0x%llx,next_point=0x%llx,first=0x%llx,intervalSize=%d" \
-          ,num_insts,next_point,simpoint2Weights.begin()->first,intervalSize);
-      #endif
       if (num_insts >= next_point) {
           Log("Should take cpt now: %lu", num_insts);
           return true;
       } else if (num_insts % intervalSize == 0) {
           Log("First cpt @ %lu, now: %lu",
                   next_point, num_insts);
-          return true; 
+          //return true; 
       }
   } else if (checkpointTaking && xpoint_profiling_started){
       if (num_insts >= nextNormalPoint) {
