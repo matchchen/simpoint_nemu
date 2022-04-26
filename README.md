@@ -15,3 +15,4 @@ base on nemu cpt-bk branch, for the simpoint purpose.
 2) remove x86 and mips arch directories
 3) fix a take checkpoint problem
 4) support accessing mtime csr for compatibling with other simulators or FPGA
+5) implement ecpt instead of gcpt

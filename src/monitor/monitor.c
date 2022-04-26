@@ -53,16 +53,17 @@ static inline void welcome() {
   printf("For help, type \"help\"\n");
 }
 
-static void load_gcpt_restorer() {
-  char restorer_file[256];
-  sprintf(restorer_file, "%s/resource/gcpt_restore/build/gcpt.bin", getenv("NEMU_HOME"));
+static void load_ecpt_restorer() {
+  char restorer_file[0x80000];//size: SIM_DEVICE_ADDR
+  sprintf(restorer_file, "%s/resource/ecpt/build/ecpt.bin", getenv("NEMU_HOME"));
 
   FILE *fp = fopen(restorer_file, "rb");
-  if (fp == NULL) Log("If gcpt restorer is not built, run `make` under $(NEMU_HOME)/resource/gcpt_restore");
+  if (fp == NULL) Log("If ecpt restorer is not built, run `make` under $(NEMU_HOME)/resource/ecpt");
   Assert(fp, "Can not open '%s'", restorer_file);
   Log("Opening restorer file: %s", restorer_file);
   fseek(fp, 0, SEEK_END);
   long size = ftell(fp);
+  Log("restorer file size: 0x%llx", size);
   Assert(size < MAX_RESTORER_SIZE, "Restorer size = %ld is too large", size);
 
   fseek(fp, 0, SEEK_SET);
@@ -220,8 +221,8 @@ void init_monitor(int argc, char *argv[]) {
     /* Load the image to memory. This will overwrite the built-in image. */
     img_size = load_img();
 
-#ifdef __GCPT_COMPATIBLE__
-    load_gcpt_restorer();
+#ifdef __ECPT_COMPATIBLE__
+    load_ecpt_restorer();
 #endif
 
   }

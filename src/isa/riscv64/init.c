@@ -28,7 +28,7 @@ void init_csr(void) {
 
 void init_isa(void) {
     cpu.gpr[0]._64 = 0;
-#ifdef __GCPT_COMPATIBLE__
+#ifdef __ECPT_COMPATIBLE__
     cpu.pc = PMEM_BASE + RESTORER_START;
 #else
     cpu.pc = PMEM_BASE + IMAGE_START;

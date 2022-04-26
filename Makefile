@@ -77,7 +77,7 @@ CFLAGS   += -O2 -MMD -Wno-format -Wall \
             -D__ENGINE_$(ENGINE)__ \
             -D__SIMPOINT \
 	    -DFLAT_CPTPATH \
-            -D__GCPT_COMPATIBLE__ \
+            -D__ECPT_COMPATIBLE__ \
             -D__ISA__=$(ISA) -D__ISA_$(ISA)__ -D_ISA_H_=\"isa/$(ISA).h\"
 			# -Wc++-compat \
 

@@ -18,7 +18,7 @@
   f(stval      , 0x143) f(sip        , 0x144) \
   f(satp       , 0x180) \
   f(fflags     , 0x001) f(frm        , 0x002) f(fcsr       , 0x003) \
-  f(nemu_time    , 0xc01) 
+  f(nemu_time    , 0xc01) f(cycle    , 0xc00)
 #else
 #define CSRS(f) \
   f(mstatus    , 0x300) f(misa       , 0x301) f(medeleg    , 0x302) f(mideleg    , 0x303) \
@@ -232,6 +232,9 @@ CSR_STRUCT_END(fcsr)
 
 CSR_STRUCT_START(nemu_time)
 CSR_STRUCT_END(nemu_time)
+
+CSR_STRUCT_START(cycle)
+CSR_STRUCT_END(cycle)
 
 #define CSRS_DECL(name, addr) extern concat(name, _t)* const name;
 MAP(CSRS, CSRS_DECL)

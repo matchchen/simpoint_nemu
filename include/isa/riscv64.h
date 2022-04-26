@@ -6,7 +6,7 @@
 // memory
 #ifdef __ENGINE_rv64__
 #define riscv64_IMAGE_START 0x100000
-#elif defined(__GCPT_COMPATIBLE__)
+#elif defined(__ECPT_COMPATIBLE__)
 // #define riscv64_IMAGE_START 0xa0000
 #define riscv64_IMAGE_START 0xa0000
 #else

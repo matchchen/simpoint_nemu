@@ -17,7 +17,7 @@
 #include <fstream>
 #include <memory/paddr.h>
 #include <monitor/monitor.h>
-#include <gcpt_restore/src/restore_rom_addr.h>
+#include <ecpt/src/restore_rom_addr.h>
 
 using namespace std;
 
