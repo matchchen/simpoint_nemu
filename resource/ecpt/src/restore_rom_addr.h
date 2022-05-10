@@ -18,5 +18,5 @@
 #define CLINT_MTIMECMP 0x4000
 #define CLINT_MTIME 0xBFF8
 
-#define RESTORE_C910_RTL 1
+#define RESTORE_C910_RTL 0
 #endif //__RESTORE_ROM_ADDR__

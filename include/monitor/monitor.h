@@ -31,9 +31,12 @@ extern char *simpoints_dir;
 extern int profiling_state;
 extern bool checkpointRestoring;
 extern bool checkpointTaking;
+extern bool triggerpointTaking;
 extern int cpt_id;
 extern unsigned profiling_interval;
 extern uint64_t checkpoint_interval;
+extern uint64_t triggerpoint_addr;
+extern uint64_t triggerpoint_cnt;
 extern uint64_t max_insts;
 
 #endif

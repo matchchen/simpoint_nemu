@@ -47,6 +47,7 @@ class Serializer
     std::map<uint64_t, double> simpoint2Weights;
 
     uint64_t nextNormalPoint;
+    uint64_t triggerPointCnt;
 };
 
 extern Serializer serializer;

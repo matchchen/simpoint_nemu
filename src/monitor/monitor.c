@@ -31,9 +31,12 @@ char *sdcard_img = nullptr;
 int profiling_state = NoSimpoint;
 bool checkpointRestoring = false;
 bool checkpointTaking = false;
+bool triggerpointTaking = false;
 int cpt_id = -1;
 unsigned profiling_interval = 0;
 uint64_t checkpoint_interval = 0;
+uint64_t triggerpoint_addr = 0;
+uint64_t triggerpoint_cnt = 1;
 uint64_t max_insts = 0;
 
 int is_batch_mode() { return batch_mode; }
@@ -117,11 +120,12 @@ static inline void parse_args(int argc, char *argv[]) {
     {"cpt-id"             , required_argument, NULL, 4},
     {"sdcard-img"         , required_argument, NULL, 6},
     {"betapoint-profile"  , no_argument      , NULL, 7},
+    {"triggerpoint"       , required_argument, NULL, 't'},
     {0                    , no_argument      , NULL, 0},
   };
   int o;
   int long_index = 0;
-  while ( (o = getopt_long(argc, argv, "-bhl:d:p:c:S:D:C:w:m:", table, &long_index)) != -1) {
+  while ( (o = getopt_long(argc, argv, "-bhl:d:p:c:S:D:C:w:m:t:", table, &long_index)) != -1) {
     switch (o) {
       case 3:
         assert(profiling_state == NoSimpoint);
@@ -171,6 +175,13 @@ static inline void parse_args(int argc, char *argv[]) {
         Log("Doing SimpointCheckpointing");
         break;
 
+      case 't':
+        sscanf(optarg, "%lx", &triggerpoint_addr);
+        sscanf(argv[optind], "%lu", &triggerpoint_cnt);
+        triggerpointTaking = true;
+        Log("Doing triggerpointTaking! addr is %lx cnt is %lu", triggerpoint_addr, triggerpoint_cnt);
+        break;
+
       case 1:
         if (img_file != NULL) Log("too much argument '%s', ignored", optarg);
         else img_file = optarg;
@@ -187,6 +198,7 @@ static inline void parse_args(int argc, char *argv[]) {
         printf("\t-w,--workload=WORKLOAD  the name of sub_dir of this run in STAT_DIR\n");
         printf("\t-S,--simpoint-dir=SIMPOINT_DIR   simpoints dir\n");
         printf("\t-C,--config=CONFIG      running configuration\n");
+        printf("\t-t,--triggerpoint=TRIGGERPOINT_ADDR TRIGGERPOINT_CNT triggerpoint address and the count of entering the address\n");
         printf("\t--simpoint-profile      simpoint profiling\n");
         printf("\t--cpt-id                checkpoint id\n");
         printf("\t--interval              simpoint interval\n");

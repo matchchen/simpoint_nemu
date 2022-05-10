@@ -16,3 +16,4 @@ base on nemu cpt-bk branch, for the simpoint purpose.
 3) fix a take checkpoint problem
 4) support accessing mtime csr for compatibling with other simulators or FPGA
 5) implement ecpt instead of gcpt
+6) add "-t \<triggerpoint_addr\> \<triggerpoint_cnt\>" command argument for triggerpoint

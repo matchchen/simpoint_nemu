@@ -36,8 +36,10 @@ void Serializer::serializePMem(uint64_t inst_count) {
   assert(regDumped);
 
   if (simpoint2Weights.empty()) {
-    Log("Error: serializePMem but simpoint2Weights is empty, exit");
-    exit(0);
+    if (!triggerpointTaking) {
+      Log("Error: serializePMem but simpoint2Weights is empty, exit");
+      exit(0);
+    }
   }
 
   uint8_t *pmem = getPmem();
@@ -57,6 +59,10 @@ void Serializer::serializePMem(uint64_t inst_count) {
                         to_string(simpoint2Weights.begin()->first * intervalSize) + "_" + \
                         to_string(simpoint2Weights.begin()->second) + "_.gz";
 #endif
+  } else if (triggerpointTaking) {
+      filepath = pathManager.getOutputPath() + "_" + \
+                        to_string(cpu.pc) + "_" + \
+                        to_string(triggerPointCnt) + "_.gz";
   } else {
       filepath = pathManager.getOutputPath() + "_" + \
                         to_string(inst_count) + "_.gz";
@@ -268,7 +274,7 @@ void Serializer::init() {
 }
 
 bool Serializer::shouldTakeCpt(uint64_t num_insts) {
-  if ((profiling_state != SimpointCheckpointing || simpoint2Weights.empty()) && !checkpointTaking) {
+  if ((profiling_state != SimpointCheckpointing || simpoint2Weights.empty()) && !checkpointTaking && !triggerpointTaking) {
     return false;
   }
   extern bool xpoint_profiling_started;
@@ -285,8 +291,16 @@ bool Serializer::shouldTakeCpt(uint64_t num_insts) {
       }
   } else if (checkpointTaking && xpoint_profiling_started){
       if (num_insts >= nextNormalPoint) {
-          //Log("Should take cpt now: %lu", num_insts);
+          Log("Should take cpt now: %lu", num_insts);
           return true;
+      }
+  } else if (triggerpointTaking && xpoint_profiling_started) {
+      if (cpu.pc == uint64_t(triggerpoint_addr)) {
+          triggerPointCnt++;
+          if (triggerPointCnt == triggerpoint_cnt) {
+              Log("Should take cpt now: 0x%lx", triggerpoint_addr);
+              return true;
+          }
       }
   }
   return false;
