@@ -8,7 +8,8 @@ BINARY ?= $(BUILD_DIR)/$(NAME)
 .DEFAULT_GOAL = app
 
 # Compilation flags
-CROSS_COMPILE = riscv64-unknown-linux-gnu-
+#CROSS_COMPILE = riscv64-unknown-linux-gnu-
+CROSS_COMPILE = riscv64-unknown-elf-
 CC = $(CROSS_COMPILE)gcc
 LD = $(CROSS_COMPILE)ld
 OBJDUMP = $(CROSS_COMPILE)objdump
@@ -23,11 +24,11 @@ OBJS = $(addprefix $(OBJ_DIR)/, $(addsuffix .o, $(basename $(SRCS))))
 # Compilation patterns
 $(OBJ_DIR)/%.o: %.c
 	@mkdir -p $(dir $@) && echo + CC $<
-	@$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(OBJ_DIR)/%.o: %.S
 	@mkdir -p $(dir $@) && echo + AS $<
-	@$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 
 # Depencies
@@ -35,7 +36,7 @@ $(OBJ_DIR)/%.o: %.S
 
 $(BINARY): $(OBJS)
 	@echo + LD $@
-	@$(LD) -O2 -T restore.lds -o $@ $^
+	$(LD) -O2 -T restore.lds -o $@ $^
 	@$(OBJDUMP) -S $@ > $@.txt
 	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $@ $@.bin
 

@@ -2,9 +2,18 @@
 #include "encoding.h"
 #include "csr.h"
 
-  .option norvc
+//  .option norvc
   .section ".boot2.code","ax",@progbits
   .globl restore_csr_vector
+
+boot_decide_vector:
+  li s0, BOOT_FLAGS  
+  ld t1, (s0) #load boot flag
+  li t2, CPT_MAGIC_BUMBER
+#if 1 //test ecpt init
+  beq t1, t2,1f
+  j RESET_VECTOR
+#endif
 
 1:
 restore_csr_vector:

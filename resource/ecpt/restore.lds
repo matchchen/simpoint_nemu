@@ -2,7 +2,7 @@
 
 OUTPUT_ARCH( "riscv" )
 
-ENTRY( boot_decide_vector )
+ENTRY( init_early )
 
 SECTIONS
 {
@@ -36,4 +36,6 @@ SECTIONS
   /* Device
   /*--------------------------------------------------------------------*/
   . = 0x00080000;
+
+  stack0 = 0x000ee000;
 }
