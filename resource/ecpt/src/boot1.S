@@ -68,6 +68,7 @@ init_early:
   csrr x3,mhartid
   li x4,1
 
+bgtz x3,slave_harts 
 
   .global cpu_0_sp
 cpu_0_sp:
@@ -136,6 +137,7 @@ after_l2en:
   j BOOT2_CODE
 
 slave_harts:
+  wfi
   j slave_harts
 
 .align 2
