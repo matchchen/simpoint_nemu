@@ -17,3 +17,5 @@ base on nemu cpt-bk branch, for the simpoint purpose.
 4) support accessing mtime csr for compatibling with other simulators or FPGA
 5) implement ecpt instead of gcpt
 6) add "-t \<triggerpoint_addr\> \<triggerpoint_cnt\>" command argument for triggerpoint
+7) add deadloop for slave harts
+8) externd memory size to 800MiB
