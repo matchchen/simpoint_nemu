@@ -9,7 +9,7 @@
 #else
     //#define PMEM_SIZE (8 * 1024 * 1024 * 1024L)
     //#define PMEM_SIZE (256 * 1024 * 1024L)
-    #define PMEM_SIZE (1024 * 1024L)
+    #define PMEM_SIZE (800 * 1024 * 1024L)
 #endif
 
 void init_mem();
