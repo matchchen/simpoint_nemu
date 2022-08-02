@@ -3,38 +3,63 @@
 
 #include <common.h>
 
-#ifdef COMP_TIME_CSR 
+#ifdef CONFIG_RV_SVINVAL
+#define CUSTOM_CSR(f) \
+  f(srnctl     , 0x5c4)
+#else
+#define CUSTOM_CSR(f)
+#endif
+
+// SHARE mode does not support mtime
+#ifndef CONFIG_SHARE
 #define CSRS(f) \
   f(mstatus    , 0x300) f(misa       , 0x301) f(medeleg    , 0x302) f(mideleg    , 0x303) \
   f(mie        , 0x304) f(mtvec      , 0x305) f(mcounteren , 0x306) \
   f(mscratch   , 0x340) f(mepc       , 0x341) f(mcause     , 0x342) \
   f(mtval      , 0x343) f(mip        , 0x344) \
-  f(pmpcfg0    , 0x3a0) \
+  f(pmpcfg0    , 0x3a0) f(pmpcfg1    , 0x3a1) f(pmpcfg2    , 0x3a2) f(pmpcfg3    , 0x3a3) \
   f(pmpaddr0   , 0x3b0) f(pmpaddr1   , 0x3b1) f(pmpaddr2   , 0x3b2) f(pmpaddr3   , 0x3b3) \
+  f(pmpaddr4   , 0x3b4) f(pmpaddr5   , 0x3b5) f(pmpaddr6   , 0x3b6) f(pmpaddr7   , 0x3b7) \
+  f(pmpaddr8   , 0x3b8) f(pmpaddr9   , 0x3b9) f(pmpaddr10  , 0x3ba) f(pmpaddr11  , 0x3bb) \
+  f(pmpaddr12  , 0x3bc) f(pmpaddr13  , 0x3bd) f(pmpaddr14  , 0x3be) f(pmpaddr15  , 0x3bf) \
   f(mhartid    , 0xf14) \
   f(sstatus    , 0x100) \
   f(sie        , 0x104) f(stvec      , 0x105) f(scounteren , 0x106) \
   f(sscratch   , 0x140) f(sepc       , 0x141) f(scause     , 0x142) \
   f(stval      , 0x143) f(sip        , 0x144) \
   f(satp       , 0x180) \
+  CUSTOM_CSR(f) \
   f(fflags     , 0x001) f(frm        , 0x002) f(fcsr       , 0x003) \
-  f(nemu_time    , 0xc01) f(cycle    , 0xc00) f(minstret    , 0xb02)
+  f(mtime      , 0xc01)
 #else
 #define CSRS(f) \
   f(mstatus    , 0x300) f(misa       , 0x301) f(medeleg    , 0x302) f(mideleg    , 0x303) \
   f(mie        , 0x304) f(mtvec      , 0x305) f(mcounteren , 0x306) \
   f(mscratch   , 0x340) f(mepc       , 0x341) f(mcause     , 0x342) \
   f(mtval      , 0x343) f(mip        , 0x344) \
-  f(pmpcfg0    , 0x3a0) \
+  f(pmpcfg0    , 0x3a0) f(pmpcfg1    , 0x3a1) f(pmpcfg2    , 0x3a2) f(pmpcfg3    , 0x3a3) \
   f(pmpaddr0   , 0x3b0) f(pmpaddr1   , 0x3b1) f(pmpaddr2   , 0x3b2) f(pmpaddr3   , 0x3b3) \
+  f(pmpaddr4   , 0x3b4) f(pmpaddr5   , 0x3b5) f(pmpaddr6   , 0x3b6) f(pmpaddr7   , 0x3b7) \
+  f(pmpaddr8   , 0x3b8) f(pmpaddr9   , 0x3b9) f(pmpaddr10  , 0x3ba) f(pmpaddr11  , 0x3bb) \
+  f(pmpaddr12  , 0x3bc) f(pmpaddr13  , 0x3bd) f(pmpaddr14  , 0x3be) f(pmpaddr15  , 0x3bf) \
   f(mhartid    , 0xf14) \
   f(sstatus    , 0x100) \
   f(sie        , 0x104) f(stvec      , 0x105) f(scounteren , 0x106) \
   f(sscratch   , 0x140) f(sepc       , 0x141) f(scause     , 0x142) \
   f(stval      , 0x143) f(sip        , 0x144) \
   f(satp       , 0x180) \
+  CUSTOM_CSR(f) \
   f(fflags     , 0x001) f(frm        , 0x002) f(fcsr       , 0x003)
-#endif 
+#endif
+
+#ifdef CONFIG_RVV_010
+  #define VCSRS(f) \
+  f(vstart, 0x008) \
+  f(vxsat, 0x009) \
+  f(vxrm, 0x00a) \
+  f(vl, 0xc20) \
+  f(vtype, 0xc21)
+#endif
 
 #define CSR_STRUCT_START(name) \
   typedef union { \
@@ -55,7 +80,7 @@ CSR_STRUCT_START(mstatus)
   uint64_t pad1: 1;
   uint64_t mpie: 1;
   uint64_t spp : 1;
-  uint64_t pad2: 2;
+  uint64_t vs: 2;
   uint64_t mpp : 2;
   uint64_t fs  : 2;
   uint64_t xs  : 2;
@@ -139,8 +164,53 @@ CSR_STRUCT_START(mip)
   uint64_t meip : 1;
 CSR_STRUCT_END(mip)
 
+/** pmp */
+
+#define PMP_R     0x01
+#define PMP_W     0x02
+#define PMP_X     0x04
+#define PMP_A     0x18
+#define PMP_L     0x80
+#define PMP_SHIFT 2
+#define PMP_PLATFORMGARIN 12 // log2(4KB)
+
+#define PMP_TOR   0x08
+#define PMP_NA4   0x10
+#define PMP_NAPOT 0x18
+
+#define CSR_PMPCFG0 0x3a0
+#define CSR_PMPCFG1 0x3a1
+#define CSR_PMPCFG2 0x3a2
+#define CSR_PMPCFG3 0x3a3
+#define CSR_PMPADDR0 0x3b0
+#define CSR_PMPADDR1 0x3b1
+#define CSR_PMPADDR2 0x3b2
+#define CSR_PMPADDR3 0x3b3
+#define CSR_PMPADDR4 0x3b4
+#define CSR_PMPADDR5 0x3b5
+#define CSR_PMPADDR6 0x3b6
+#define CSR_PMPADDR7 0x3b7
+#define CSR_PMPADDR8 0x3b8
+#define CSR_PMPADDR9 0x3b9
+#define CSR_PMPADDR10 0x3ba
+#define CSR_PMPADDR11 0x3bb
+#define CSR_PMPADDR12 0x3bc
+#define CSR_PMPADDR13 0x3bd
+#define CSR_PMPADDR14 0x3be
+#define CSR_PMPADDR15 0x3bf
+#define NUM_PMP 16 // can change in 0/16/64, but need change the above CSR declare
+
 CSR_STRUCT_START(pmpcfg0)
 CSR_STRUCT_END(pmpcfg0)
+
+CSR_STRUCT_START(pmpcfg1)
+CSR_STRUCT_END(pmpcfg1)
+
+CSR_STRUCT_START(pmpcfg2)
+CSR_STRUCT_END(pmpcfg2)
+
+CSR_STRUCT_START(pmpcfg3)
+CSR_STRUCT_END(pmpcfg3)
 
 CSR_STRUCT_START(pmpaddr0)
 CSR_STRUCT_END(pmpaddr0)
@@ -153,6 +223,42 @@ CSR_STRUCT_END(pmpaddr2)
 
 CSR_STRUCT_START(pmpaddr3)
 CSR_STRUCT_END(pmpaddr3)
+
+CSR_STRUCT_START(pmpaddr4)
+CSR_STRUCT_END(pmpaddr4)
+
+CSR_STRUCT_START(pmpaddr5)
+CSR_STRUCT_END(pmpaddr5)
+
+CSR_STRUCT_START(pmpaddr6)
+CSR_STRUCT_END(pmpaddr6)
+
+CSR_STRUCT_START(pmpaddr7)
+CSR_STRUCT_END(pmpaddr7)
+
+CSR_STRUCT_START(pmpaddr8)
+CSR_STRUCT_END(pmpaddr8)
+
+CSR_STRUCT_START(pmpaddr9)
+CSR_STRUCT_END(pmpaddr9)
+
+CSR_STRUCT_START(pmpaddr10)
+CSR_STRUCT_END(pmpaddr10)
+
+CSR_STRUCT_START(pmpaddr11)
+CSR_STRUCT_END(pmpaddr11)
+
+CSR_STRUCT_START(pmpaddr12)
+CSR_STRUCT_END(pmpaddr12)
+
+CSR_STRUCT_START(pmpaddr13)
+CSR_STRUCT_END(pmpaddr13)
+
+CSR_STRUCT_START(pmpaddr14)
+CSR_STRUCT_END(pmpaddr14)
+
+CSR_STRUCT_START(pmpaddr15)
+CSR_STRUCT_END(pmpaddr15)
 
 CSR_STRUCT_START(sstatus)
   uint64_t uie : 1;
@@ -195,6 +301,17 @@ CSR_STRUCT_START(sip)
   uint64_t pad2 : 2;
 CSR_STRUCT_END(sip)
 
+#define SATP_ASID_LEN 16 // max is 16
+#define SATP_PADDR_LEN (PADDRBITS-12) // max is 44
+#define SATP_ASID_MAX_LEN 16
+#define SATP_PADDR_MAX_LEN 44
+
+#define SATP_MODE_MASK (8UL << (SATP_ASID_MAX_LEN + SATP_PADDR_MAX_LEN))
+#define SATP_ASID_MASK (((1L << SATP_ASID_LEN)-1) << SATP_PADDR_MAX_LEN)
+#define SATP_PADDR_MASK ((1L << SATP_PADDR_LEN)-1)
+
+#define SATP_MASK (SATP_MODE_MASK | SATP_ASID_MASK | SATP_PADDR_MASK)
+#define MASKED_SATP(x) (SATP_MASK & x)
 
 CSR_STRUCT_START(satp)
   uint64_t ppn :44;
@@ -216,39 +333,93 @@ CSR_STRUCT_END(stval)
 CSR_STRUCT_START(sscratch)
 CSR_STRUCT_END(sscratch)
 
+#ifdef CONFIG_RV_SVINVAL
+// NOTE: srcctl is a supervisor custom read/write csr
+// to fix xiangshan that:
+// rnctl: move elimination,
+// svinval: one vm extension
+CSR_STRUCT_START(srnctl)
+  uint64_t rnctrl  : 1;
+  uint64_t svinval : 1;
+  uint64_t reserve :63;
+CSR_STRUCT_END(srnctl)
+#endif
+
 CSR_STRUCT_START(fflags)
-  uint64_t nv: 1;
-  uint64_t dz: 1;
-  uint64_t of: 1;
-  uint64_t uf: 1;
-  uint64_t nx: 1;
 CSR_STRUCT_END(fflags)
 
 CSR_STRUCT_START(frm)
 CSR_STRUCT_END(frm)
 
 CSR_STRUCT_START(fcsr)
+  union {
+    struct {
+      uint64_t nv: 1;
+      uint64_t dz: 1;
+      uint64_t of: 1;
+      uint64_t uf: 1;
+      uint64_t nx: 1;
+      uint64_t frm : 3;
+    };
+    struct {
+      uint64_t val: 5;
+    } fflags;
+  };
 CSR_STRUCT_END(fcsr)
 
-CSR_STRUCT_START(nemu_time)
-CSR_STRUCT_END(nemu_time)
+CSR_STRUCT_START(mtime)
+CSR_STRUCT_END(mtime)
 
-CSR_STRUCT_START(cycle)
-CSR_STRUCT_END(cycle)
+#ifdef CONFIG_RVV_010
+// TODO: implement these vcsr
+#define IDXVSTART 0x008
+#define IDXVXSAT  0x009
+#define IDXVXRM   0x00a
+#define IDXVL     0xc20
+#define IDXVTYPE  0xc21
 
-CSR_STRUCT_START(minstret)
-CSR_STRUCT_END(minstret)
+CSR_STRUCT_START(vstart)
+CSR_STRUCT_END(vstart)
+
+CSR_STRUCT_START(vxsat)
+  uint64_t sat :  1;
+  uint64_t pad : 63;
+CSR_STRUCT_END(vxsat)
+
+CSR_STRUCT_START(vxrm)
+  uint64_t rm  :  2;
+  uint64_t pad : 62;
+CSR_STRUCT_END(vxrm)
+
+CSR_STRUCT_START(vl)
+CSR_STRUCT_END(vl)
+
+CSR_STRUCT_START(vtype)
+  uint64_t vlmul :  3;
+  uint64_t vsew  :  3;
+  uint64_t vediv :  2;
+  uint64_t pad   : 55;
+  uint64_t vill  :  1;
+CSR_STRUCT_END(vtype)
+
+rtlreg_t check_vsetvl(rtlreg_t vtype_req, rtlreg_t vl_req, bool max_req);
+rtlreg_t get_mask(int reg, int idx, uint64_t vsew, uint64_t vlmul);
+void set_mask(uint32_t reg, int idx, uint64_t mask, uint64_t vsew, uint64_t vlmul);
+
+#endif // CONFIG_RVV_010
 
 #define CSRS_DECL(name, addr) extern concat(name, _t)* const name;
 MAP(CSRS, CSRS_DECL)
+#ifdef CONFIG_RVV_010
+  MAP(VCSRS, CSRS_DECL)
+#endif // CONFIG_RVV_010
 
-void csr_read(rtlreg_t *dest, uint32_t addr);
-void csr_write(uint32_t addr, rtlreg_t *src);
+word_t csrid_read(uint32_t csrid);
 
-enum { MODE_U = 0, MODE_S, MODE_H, MODE_M };
-void change_mode(uint8_t m);
-nemu_bool ptw_is_safe(vaddr_t vaddr);
-
-bool able_to_take_cpt();
+// PMP
+uint8_t pmpcfg_from_index(int idx);
+word_t pmpaddr_from_index(int idx);
+word_t pmpaddr_from_csrid(int id);
+word_t pmp_tor_mask();
 
 #endif

@@ -2,17 +2,24 @@
 // Created by zyy on 2020/11/21.
 //
 
-#include "checkpoint/path_manager.h"
+#include <checkpoint/path_manager.h>
+#include <checkpoint/cpt_env.h>
+#include <profiling/profiling_control.h>
 
-#include <monitor/monitor.h>
+#include <cassert>
 #include <iostream>
 #include <experimental/filesystem>
 
 using namespace std;
 
+extern "C" {
+#include <debug.h>
+extern bool log_enable();
+}
+
 void PathManager::init() {
-  assert(stats_base_dir);
-  statsBaseDir = stats_base_dir;
+  assert(output_base_dir);
+  statsBaseDir = output_base_dir;
 
   assert(config_name);
   configName = config_name;
@@ -26,13 +33,12 @@ void PathManager::init() {
     cptID = cpt_id;
   }
 
-  if (profiling_state == SimpointCheckpointing || checkpointTaking) {
+  if (profiling_state == SimpointCheckpointing || checkpoint_taking) {
     cptID = 0;
   }
 
   Log("Cpt id: %i", cptID);
   workloadPath = statsBaseDir + "/" + configName + "/" + workloadName + "/";
-  flat_workloadPath = statsBaseDir + "/" + configName + "/";
 
   if (profiling_state == SimpointCheckpointing) {
     assert(simpoints_dir);
@@ -43,21 +49,17 @@ void PathManager::init() {
 }
 
 void PathManager::setOutputDir() {
-  #ifdef FLAT_CPTPATH
-  std::string output_path = flat_workloadPath;
-  #else
   std::string output_path = workloadPath;
   if (cptID != -1) {
     output_path += to_string(cptID) + "/";
   }
-  #endif
 
   outputPath = fs::path(output_path);
 
   if (!fs::exists(outputPath)) {
     fs::create_directories(outputPath);
-    Log("Created %s\n", output_path.c_str());
   }
+  Log("Created %s\n", output_path.c_str());
 }
 
 void PathManager::incCptID() {
@@ -69,11 +71,6 @@ std::string PathManager::getOutputPath() const {
   return outputPath.string();
 }
 
-std::string PathManager::getWorkloadName() const {
-  return workloadName;
-}
-
-
 std::string PathManager::getSimpointPath() const {
   // cerr << simpointPath.string() << endl;
   // std::fflush(stderr);
@@ -83,7 +80,11 @@ std::string PathManager::getSimpointPath() const {
 
 PathManager pathManager;
 
-void init_path_manger()
+extern "C" {
+
+void init_path_manager()
 {
   pathManager.init();
+}
+
 }

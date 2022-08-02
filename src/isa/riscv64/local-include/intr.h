@@ -26,8 +26,9 @@ enum {
 // so it may ok to use EX_IAM to indicate a successful memory access
 #define MEM_OK 0
 
-void raise_intr(DecodeExecState *s, word_t NO, vaddr_t epc);
+word_t raise_intr(word_t NO, vaddr_t epc);
 #define return_on_mem_ex() do { if (cpu.mem_exception != MEM_OK) return; } while (0)
-
+bool intr_deleg_S(word_t exceptionNO);
+#define INTR_TVAL_REG(ex) (*((intr_deleg_S(ex)) ? (word_t *)stval : (word_t *)mtval))
 
 #endif

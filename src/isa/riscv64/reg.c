@@ -1,8 +1,8 @@
 #include <isa.h>
-#include <monitor/difftest.h>
+//#include <monitor/difftest.h>
 #include "local-include/reg.h"
 #include "local-include/csr.h"
-#include "local-include/intr.h"
+//#include "local-include/intr.h"
 
 const char *regsl[] = {
   "$0", "ra", "sp", "gp", "tp", "t0", "t1", "t2",
@@ -17,10 +17,6 @@ const char *fpregsl[] = {
   "fa6", "fa7", "fs2", "fs3", "fs4", "fs5", "fs6", "fs7",
   "fs8", "fs9", "fs10", "fs11", "ft8", "ft9", "ft10", "ft11"
 };
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 void isa_reg_display() {
   int i;
@@ -38,24 +34,45 @@ void isa_reg_display() {
   }
   printf("pc: " FMT_WORD " mstatus: " FMT_WORD " mcause: " FMT_WORD " mepc: " FMT_WORD "\n",
       cpu.pc, mstatus->val, mcause->val, mepc->val);
-  rtlreg_t temp;
-  csr_read(&temp, 0x100); // sstatus
   printf("%22s sstatus: " FMT_WORD " scause: " FMT_WORD " sepc: " FMT_WORD "\n",
-      "", temp, scause->val, sepc->val);
+      "", csrid_read(0x100), scause->val, sepc->val);
   printf("satp: " FMT_WORD "\n", satp->val);
-  printf("mip: " FMT_WORD " mie: " FMT_WORD " mscratch: " FMT_WORD " sscratch: " FMT_WORD "\n", 
+  printf("mip: " FMT_WORD " mie: " FMT_WORD " mscratch: " FMT_WORD " sscratch: " FMT_WORD "\n",
       mip->val, mie->val, mscratch->val, sscratch->val);
-  printf("mideleg: " FMT_WORD " medeleg: " FMT_WORD "\n", 
+  printf("mideleg: " FMT_WORD " medeleg: " FMT_WORD "\n",
       mideleg->val, medeleg->val);
-  printf("mtval: " FMT_WORD " stval: " FMT_WORD "mtvec: " FMT_WORD " stvec: " FMT_WORD "\n", 
+  printf("mtval: " FMT_WORD " stval: " FMT_WORD " mtvec: " FMT_WORD " stvec: " FMT_WORD "\n",
       mtval->val, stval->val, mtvec->val, stvec->val);
-}
-
-#ifdef __cplusplus
-}
+#ifdef CONFIG_RV_PMP_CSR
+  printf("privilege mode:%ld  pmp: below\n", cpu.mode);
+  for (int i = 0; i < NUM_PMP; i++) {
+    printf("%2d: cfg:0x%02x addr:0x%016lx", i, pmpcfg_from_index(i), pmpaddr_from_index(i));
+    if (i % 2 == 1) printf("\n");
+    else printf("|");
+  }
+#ifndef CONFIG_RV_PMP_CHECK
+  printf("pmp csr rw: enable, pmp check: disable\n");
+#endif
+#else
+  printf("privilege mode:%ld\n", cpu.mode);
 #endif
 
-rtlreg_t isa_reg_str2val(const char *s, nemu_bool *success) {
+#ifdef CONFIG_RVV_010
+  //vector register
+  extern const char * vregsl[];
+  for(i = 0; i < 32; i ++) {
+    printf("%s: ", vregsl[i]);
+    printf("0x%016lx_%016lx_%016lx_%016lx  ",
+      cpu.vr[i]._64[3], cpu.vr[i]._64[2], cpu.vr[i]._64[1], cpu.vr[i]._64[0]);
+    if(i%2) printf("\n");
+  }
+  printf("vtype: " FMT_WORD " vstart: " FMT_WORD " vxsat: " FMT_WORD "\n", vtype->val, vstart->val, vxsat->val);
+  printf("vxrm: " FMT_WORD " vl: " FMT_WORD "\n", vxrm->val, vl->val);
+#endif // CONFIG_RVV_010
+  fflush(stdout);
+}
+
+rtlreg_t isa_reg_str2val(const char *s, bool *success) {
   int i;
   *success = true;
   for (i = 0; i < 32; i ++) {
@@ -68,115 +85,6 @@ rtlreg_t isa_reg_str2val(const char *s, nemu_bool *success) {
   return 0;
 }
 
-rtlreg_t csr_array[4096] = {};
-
-#define CSRS_DEF(name, addr) \
-  concat(name, _t)* const name = (concat(name, _t) *)&csr_array[addr];
-MAP(CSRS, CSRS_DEF)
-
-static nemu_bool csr_exist[4096];
-#define CSRS_EXIST(name, addr) csr_exist[addr] = 1;
-
-void init_csr_exist() {
-  MAP(CSRS, CSRS_EXIST)
-}
-
-static inline word_t* csr_decode(uint32_t addr) {
-  assert(addr < 4096);
-  Assert(csr_exist[addr], "unimplemented CSR 0x%x at pc = " FMT_WORD, addr, cpu.pc);
-  return &csr_array[addr];
-}
-
-#define SSTATUS_WMASK ((1 << 19) | (1 << 18) | (0x3 << 13) | (1 << 8) | (1 << 5) | (1 << 1))
-#define SSTATUS_RMASK (SSTATUS_WMASK | (0x3 << 15) | (1ull << 63) | (3ull << 32))
-#define SIE_MASK (0x222 & mideleg->val)
-#define SIP_MASK (0x222 & mideleg->val)
-
-#define FFLAGS_MASK 0x1f
-#define FRM_MASK 0x03
-#define FCSR_MASK 0xff
-
-void csr_read(rtlreg_t *dest, uint32_t addr) {
-  word_t *src = csr_decode(addr);
-#ifndef __DIFF_REF_NEMU__
-  difftest_skip_dut(1, 3);
-#endif
-
-  if (src == (void *)sstatus) {
-    *dest = mstatus->val & SSTATUS_RMASK;
-  } else if (src == (void *)sie) {
-    *dest = mie->val & SIE_MASK;
-  } else if (src == (void *)sip) {
-    *dest = mip->val & SIP_MASK;
-  } else if (src == (void *)fflags) {
-    *dest = fflags->val & FFLAGS_MASK;
-  } else if (src == (void *)frm) {
-    *dest = frm->val & FRM_MASK;
-  } else if (src == (void *)fcsr) {
-    *dest = fcsr->val & FCSR_MASK;
-  } else {
-    *dest = *src;
-  }
-}
-
-void csr_write(uint32_t addr, rtlreg_t *src) {
-  word_t *dest = csr_decode(addr);
-  Log("!!!csr_write value: 0x%llx",*src);
-  if (dest == (void *)sstatus) {
-    mstatus->val = (mstatus->val & ~SSTATUS_WMASK) | (*src & SSTATUS_WMASK);
-  } else if (dest == (void *)sie) {
-    mie->val = (mie->val & ~SIE_MASK) | (*src & SIE_MASK);
-  } else if (dest == (void *)sip) {
-    mip->val = (mip->val & ~SIP_MASK) | (*src & SIP_MASK);
-  } else if (dest == (void *)medeleg) {
-    *dest = *src & 0xf3ff;
-  } else if (dest == (void *)mideleg) {
-    *dest = *src & 0x222;
-  } else if (dest == (void *)fflags) {
-    mstatus->fs = 3;
-    mstatus->sd = 1;
-    *dest = *src & FFLAGS_MASK;
-    fcsr->val = (frm->val)<<5 | fflags->val;
-  } else if (dest == (void *)frm) {
-    mstatus->fs = 3;
-    mstatus->sd = 1;
-    *dest = *src & FRM_MASK;
-    fcsr->val = (frm->val)<<5 | fflags->val;
-  } else if (dest == (void *)fcsr) {
-    mstatus->fs = 3;
-    mstatus->sd = 1;
-    *dest = *src & FCSR_MASK;
-    fflags->val = *src & FFLAGS_MASK;
-    frm->val = ((*src)>>5) & FRM_MASK;
-  } else {
-    *dest = *src;
-
-    if (dest == (void *)mcause) {
-      Log("!!!mcause = 0x%llx",*src);
-    }
-
-    if (dest == (void *)mstatus) {
-        mstatus->sxl = 2;
-        mstatus->uxl = 2;
-    }
-  }
-
-  if (dest == (void *)sstatus || dest == (void *)mstatus) {
-#ifdef __DIFF_REF_QEMU__
-    // mstatus.fs is always dirty or off in QEMU 3.1.0
-    if (mstatus->fs) { mstatus->fs = 3; }
-#endif
-    mstatus->sd = mstatus->fs == 3 || mstatus->xs == 3;
-  }
-}
-
-void change_mode(uint8_t m) {
-  assert(m < 4 && m != MODE_H);
-  cpu.mode = m;
-}
-
 bool able_to_take_cpt() {
-  return true;
-  //return cpu.mode != MODE_M;
+  return cpu.mode != MODE_M;
 }
-

@@ -22,8 +22,6 @@ class PathManager
     std::string workloadPath;
     fs::path outputPath;
     fs::path simpointPath;
-    std::string flat_workloadPath;
-
 
   public:
     void init();
@@ -37,8 +35,6 @@ class PathManager
     std::string getWorkloadPath() const {return workloadPath;};
 
     std::string getSimpointPath() const;
-
-    std::string getWorkloadName() const;
 
     void setOutputDir();
 };

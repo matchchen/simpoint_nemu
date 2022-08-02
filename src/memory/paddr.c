@@ -1,180 +1,182 @@
 #include <isa.h>
+#include <memory/host.h>
 #include <memory/paddr.h>
-#include <memory/vaddr.h>
-#include <device/map.h>
+#include <device/mmio.h>
 #include <stdlib.h>
-#include <sys/mman.h>
 #include <time.h>
+#include <cpu/cpu.h>
+#include "../local-include/csr.h"
+#include "../local-include/intr.h"
+
+#ifdef CONFIG_USE_MMAP
 #include <sys/mman.h>
-
-uint8_t *pmem;//[PMEM_SIZE] PG_ALIGN = {};
-#ifdef ENABLE_DISAMBIGUATE
-bool    *pmem_dirty;//[PMEM_SIZE] PG_ALIGN = {0};
+#include <fcntl.h>
+#include <unistd.h>
+static uint8_t *pmem = (uint8_t *)0x100000000ul;
+#else
+static uint8_t pmem[CONFIG_MSIZE] PG_ALIGN = {};
 #endif
+#define HOST_PMEM_OFFSET (uint8_t *)(pmem - CONFIG_MBASE)
 
-void* guest_to_host(paddr_t addr) { return &pmem[addr]; }
-paddr_t host_to_guest(void *addr) { return (uint8_t *)pmem - (uint8_t *)addr; }
+uint8_t *get_pmem()
+{
+  return pmem;
+}
 
-IOMap* fetch_mmio_map(paddr_t addr);
+char *mapped_cpt_file = NULL;
+bool map_image_as_output_cpt = false;
 
+uint8_t* guest_to_host(paddr_t paddr) { return paddr + HOST_PMEM_OFFSET; }
+paddr_t host_to_guest(uint8_t *haddr) { return haddr - HOST_PMEM_OFFSET; }
 
-void allocate_mem() {
-  int map_flags = MAP_ANON | MAP_PRIVATE | MAP_NORESERVE;
-  pmem = (uint8_t*) mmap(NULL, PMEM_SIZE, PROT_READ | PROT_WRITE, map_flags, -1, 0);
-  if (pmem == (uint8_t *)MAP_FAILED) {
-      panic("Failed to Allocate %lu Bytes space for NEMU\n");
-  }
-  Log("Main memory is at [0x%lx, 0x%lx]", PMEM_BASE, PMEM_BASE + PMEM_SIZE);
+static inline word_t pmem_read(paddr_t addr, int len) {
+  return host_read(guest_to_host(addr), len);
+}
 
-#ifdef ENABLE_DISAMBIGUATE
-  pmem_dirty = (uint8_t*) mmap(NULL, PMEM_SIZE, PROT_READ | PROT_WRITE, map_flags, -1, 0);
-  if (pmem_dirty == (uint8_t *)MAP_FAILED) {
-    panic("Failed to Allocate %lu Bytes space for NEMU\n");
-  }
+static inline void pmem_write(paddr_t addr, int len, word_t data) {
+#ifdef CONFIG_DIFFTEST_STORE_COMMIT
+  store_commit_queue_push(addr, data, len);
 #endif
+  host_write(guest_to_host(addr), len, data);
 }
 
 void init_mem() {
+#ifdef CONFIG_USE_MMAP
+  #ifdef CONFIG_MULTICORE_DIFF
+    panic("Pmem must not use mmap during multi-core difftest");
+  #endif
+  bool named_mmap = mapped_cpt_file != NULL || map_image_as_output_cpt;
+  void *mmap_ret = NULL;
+  if (named_mmap) {
+    Log("mmap memory to named file %s", mapped_cpt_file);
+    if (!map_image_as_output_cpt) {
+      int fd = open(mapped_cpt_file, O_RDWR | O_TRUNC | O_CREAT, (mode_t)0600);
+      if (!fd) {
+        panic("Failed to create file %s", mapped_cpt_file);
+      }
+      int trunc_ret = ftruncate(fd, CONFIG_MSIZE);  // create sparse file
+      if (trunc_ret == -1) {
+        panic("Failed to truncate file %s", mapped_cpt_file);
+      } else {
+        Log("Truncate file %s to 0x%lx Bytes", mapped_cpt_file, CONFIG_MSIZE);
+      }
+      mmap_ret = mmap((void *)pmem, CONFIG_MSIZE, PROT_READ | PROT_WRITE,
+          MAP_SHARED | MAP_FIXED, fd, 0);
 
-#ifdef ENABLE_DISAMBIGUATE
-  pmem_dirty = (bool *)mmap(NULL, PMEM_SIZE * sizeof(bool), PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
-  if (pmem_dirty == (bool *)MAP_FAILED) {
-    printf("ERROR allcoating pmem_dirty bitmap. \n");
+    } else {  // Directly map to image(cpt)
+      if (is_gz_file(mapped_cpt_file)) {
+        panic("Cannot map to gz file\n");
+      }
+      int fd = open(mapped_cpt_file, O_RDWR);
+      if (!fd) {
+        panic("Failed to open(R/W) file %s", mapped_cpt_file);
+      } else {
+        Log("Execute directly on %s", mapped_cpt_file);
+      }
+      mmap_ret = mmap((void *)pmem, CONFIG_MSIZE, PROT_READ | PROT_WRITE,
+          MAP_SHARED | MAP_FIXED, fd, 0);
+    }
+
+  } else {
+    Log("mmap memory to anonymous file");
+    mmap_ret = mmap((void *)pmem, CONFIG_MSIZE, PROT_READ | PROT_WRITE,
+        MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0);
+  }
+  if (mmap_ret != pmem) {
+    perror("mmap");
+    assert(0);
   }
 #endif
 
-#ifdef DIFFTEST_STORE_COMMIT
+#ifdef CONFIG_DIFFTEST_STORE_COMMIT
   for (int i = 0; i < STORE_QUEUE_SIZE; i++) {
     store_commit_queue[i].valid = 0;
   }
 #endif
 
-#if !defined(DIFF_TEST) && !_SHARE && !defined(__SIMPOINT)
+#ifdef CONFIG_MEM_RANDOM
   srand(time(0));
   uint32_t *p = (uint32_t *)pmem;
-  uint64_t i;
-  for (i = 0; i < PMEM_SIZE / sizeof(p[0]); i ++) {
+  int i;
+  for (i = 0; i < (int) (CONFIG_MSIZE / sizeof(p[0])); i ++) {
     p[i] = rand();
   }
 #endif
 }
 
-uint8_t *getPmem() {
-  return pmem;
-}
-
-static inline nemu_bool in_pmem(paddr_t addr) {
-  return (PMEM_BASE <= addr) && (addr <= PMEM_BASE + PMEM_SIZE - 1);
-}
-
-static inline word_t pmem_read(paddr_t addr, int len) {
-  void *p = &pmem[addr - PMEM_BASE];
-  switch (len) {
-    case 1: return *(uint8_t  *)p;
-    case 2: return *(uint16_t *)p;
-    case 4: return *(uint32_t *)p;
-#ifdef ISA64
-    case 8: return *(uint64_t *)p;
-#endif
-    default: assert(0);
-  }
-}
-
-static inline void pmem_write(paddr_t addr, word_t data, int len) {
-#ifdef DIFFTEST_STORE_COMMIT
-  store_commit_queue_push(addr, data, len);
-#endif
-
-  // write to pmem, mark pmem addr as dirty
-  void *p = &pmem[addr - PMEM_BASE];
-  switch (len) {
-    case 1: 
-      *(uint8_t  *)p = data;
-#ifdef ENABLE_DISAMBIGUATE
-      pmem_dirty[addr - PMEM_BASE] = true;
-#endif
-      return;
-    case 2: 
-      *(uint16_t *)p = data;
-#ifdef ENABLE_DISAMBIGUATE
-      for(int i = 0; i < 2; i++)
-        pmem_dirty[addr - PMEM_BASE + i] = true;
-#endif
-      return;
-    case 4: 
-      *(uint32_t *)p = data;
-#ifdef ENABLE_DISAMBIGUATE
-      for(int i = 0; i < 4; i++)
-        pmem_dirty[addr - PMEM_BASE + i] = true;
-#endif
-      return;
-#ifdef ISA64
-    case 8: 
-      *(uint64_t *)p = data;
-#ifdef ENABLE_DISAMBIGUATE
-      for(int i = 0; i < 8; i++)
-        pmem_dirty[addr - PMEM_BASE + i] = true;
-#endif
-      return;
-#endif
-    default: assert(0);
-  }
-}
-
-void rtl_sfence() {
-#ifdef ENABLE_DISAMBIGUATE
-  memset(pmem_dirty, 0, sizeof(sizeof(bool) * PMEM_SIZE));
-#endif
-}
-
 /* Memory accessing interfaces */
 
-word_t paddr_read(paddr_t addr, int len) {
-  if (in_pmem(addr)) {
-    return pmem_read(addr, len);
+word_t paddr_read(paddr_t addr, int len, int type, int mode, vaddr_t vaddr) {
+#ifdef CONFIG_SHARE
+  if(dynamic_config.debug_difftest) {
+    fprintf(stderr, "[NEMU]  paddr read addr:" FMT_PADDR " len:%d type:%d mode:%d\n", addr, len, type, mode);
   }
-  else return map_read(addr, len, fetch_mmio_map(addr));
-}
-
-void paddr_write(paddr_t addr, word_t data, int len) {
-  if (in_pmem(addr)) {
-    pmem_write(addr, data, len);
-  }
-  else {
-    map_write(addr, data, len, fetch_mmio_map(addr));
-  }
-}
-
-#ifdef ENABLE_DISAMBIGUATE
-nemu_bool is_sfence_safe(paddr_t addr, int len) {
-  if (in_pmem(addr)){
-    nemu_bool dirty = false;
-    switch (len) {
-      case 1: return !pmem_dirty[addr - PMEM_BASE];
-      case 2: 
-        for(int i =0; i < 2; i++){
-          dirty |= pmem_dirty[addr - PMEM_BASE + i];
-        }
-        return !dirty;
-      case 4:
-        for(int i =0; i < 4; i++){
-          dirty |= pmem_dirty[addr - PMEM_BASE + i];
-        }
-        return !dirty;
-  #ifdef ISA64
-      case 8:
-        for(int i =0; i < 8; i++){
-          dirty |= pmem_dirty[addr - PMEM_BASE + i];
-        }
-        return !dirty;
-  #endif
-      default: assert(0);
-    }
-  } else return true;
-}
 #endif
 
-#ifdef DIFFTEST_STORE_COMMIT
+  assert(type == MEM_TYPE_READ || type == MEM_TYPE_IFETCH_READ || type == MEM_TYPE_IFETCH || type == MEM_TYPE_WRITE_READ);
+  if (!isa_pmp_check_permission(addr, len, type, mode)) {
+    Log("isa pmp check failed");
+    if (type == MEM_TYPE_IFETCH || type == MEM_TYPE_IFETCH_READ) {
+      INTR_TVAL_REG(EX_IAF) = vaddr;
+      longjmp_exception(EX_IAF);
+      return false;
+    } else if (cpu.amo || type == MEM_TYPE_WRITE_READ) {
+      INTR_TVAL_REG(EX_SAF) = vaddr;
+      longjmp_exception(EX_SAF);
+      return false;
+    } else {
+      INTR_TVAL_REG(EX_LAF) = vaddr;
+      longjmp_exception(EX_LAF);
+      return false;
+    }
+  }
+#ifndef CONFIG_SHARE
+  if (likely(in_pmem(addr))) return pmem_read(addr, len);
+  else return mmio_read(addr, len);
+#else
+  if (likely(in_pmem(addr))) return pmem_read(addr, len);
+  else {
+#ifdef CONFIG_HAS_FLASH
+    return mmio_read(addr, len);
+#endif
+    if(dynamic_config.ignore_illegal_mem_access)
+      return 0;
+    printf("ERROR: invalid mem read from paddr " FMT_PADDR ", NEMU raise illegal inst exception\n", addr);
+    longjmp_exception(EX_II);
+  }
+  return 0;
+#endif
+}
+
+void paddr_write(paddr_t addr, int len, word_t data, int mode, vaddr_t vaddr) {
+#ifdef CONFIG_SHARE
+  if(dynamic_config.debug_difftest) {
+    fprintf(stderr, "[NEMU]  paddr write addr:" FMT_PADDR " len:%d mode:%d\n", addr, len, mode);
+  }
+#endif
+
+  if (!isa_pmp_check_permission(addr, len, MEM_TYPE_WRITE, mode)) {
+    INTR_TVAL_REG(EX_SAF) = vaddr;
+    longjmp_exception(EX_SAF);
+    return ;
+  }
+#ifndef CONFIG_SHARE
+  if (likely(in_pmem(addr))) pmem_write(addr, len, data);
+  else mmio_write(addr, len, data);
+#else
+  if (likely(in_pmem(addr))) return pmem_write(addr, len, data);
+  else {
+    if(dynamic_config.ignore_illegal_mem_access)
+      return;
+    printf("ERROR: invalid mem write to paddr " FMT_PADDR ", NEMU raise illegal inst exception\n", addr);
+    longjmp_exception(EX_II);
+    return;
+  }
+#endif
+}
+
+
+#ifdef CONFIG_DIFFTEST_STORE_COMMIT
 store_commit_t store_commit_queue[STORE_QUEUE_SIZE];
 static uint64_t head = 0, tail = 0;
 
@@ -182,8 +184,12 @@ void store_commit_queue_push(uint64_t addr, uint64_t data, int len) {
   if (cpu.amo) {
     return;
   }
+  static int overflow = 0;
   store_commit_t *commit = store_commit_queue + tail;
-  assert(!commit->valid);
+  if (commit->valid && !overflow) { // store commit queue overflow
+    overflow = 1;
+    printf("[WARNING] difftest store queue overflow\n");
+  };
   uint64_t offset = addr % 8ULL;
   commit->addr = addr - offset;
   commit->valid = 1;
@@ -237,33 +243,4 @@ int check_store_commit(uint64_t *addr, uint64_t *data, uint8_t *mask) {
   return result;
 }
 
-#endif
-
-word_t vaddr_mmu_read(vaddr_t addr, int len, int type);
-void vaddr_mmu_write(vaddr_t addr, word_t data, int len);
-
-#define def_vaddr_template(bytes) \
-word_t concat(vaddr_ifetch, bytes) (vaddr_t addr) { \
-  int ret = isa_vaddr_check(addr, MEM_TYPE_IFETCH, bytes); \
-  if (ret == MEM_RET_OK) return paddr_read(addr, bytes); \
-  else if (ret == MEM_RET_NEED_TRANSLATE) return vaddr_mmu_read(addr, bytes, MEM_TYPE_IFETCH); \
-  return 0; \
-} \
-word_t concat(vaddr_read, bytes) (vaddr_t addr) { \
-  int ret = isa_vaddr_check(addr, MEM_TYPE_READ, bytes); \
-  if (ret == MEM_RET_OK) return paddr_read(addr, bytes); \
-  else if (ret == MEM_RET_NEED_TRANSLATE) return vaddr_mmu_read(addr, bytes, MEM_TYPE_READ); \
-  return 0; \
-} \
-void concat(vaddr_write, bytes) (vaddr_t addr, word_t data) { \
-  int ret = isa_vaddr_check(addr, MEM_TYPE_WRITE, bytes); \
-  if (ret == MEM_RET_OK) paddr_write(addr, data, bytes); \
-  else if (ret == MEM_RET_NEED_TRANSLATE) vaddr_mmu_write(addr, data, bytes); \
-}
-
-def_vaddr_template(1)
-def_vaddr_template(2)
-def_vaddr_template(4)
-#ifdef ISA64
-def_vaddr_template(8)
 #endif

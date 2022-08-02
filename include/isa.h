@@ -1,10 +1,11 @@
 #ifndef __ISA_H__
 #define __ISA_H__
 
-#include _ISA_H_
+// Located at src/isa/$(ISA)/include/isa-def.h
+#include <isa-def.h>
 
-#define IMAGE_START concat(__ISA__, _IMAGE_START)
-#define PMEM_BASE concat(__ISA__, _PMEM_BASE)
+// The macro `__ISA__` is defined in $(CFLAGS).
+// It will be expanded as "x86" or "mips32" ...
 typedef concat(__ISA__, _CPU_state) CPU_state;
 typedef concat(__ISA__, _ISADecodeInfo) ISADecodeInfo;
 
@@ -15,46 +16,47 @@ void init_isa();
 // reg
 extern CPU_state cpu;
 extern rtlreg_t csr_array[4096];
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 void isa_reg_display();
-#ifdef __cplusplus
-}
-#endif
-
-word_t isa_reg_str2val(const char *name, nemu_bool *success);
-
-bool able_to_take_cpt();
+word_t isa_reg_str2val(const char *name, bool *success);
 
 // exec
-vaddr_t isa_exec_once();
+struct Decode;
+int isa_fetch_decode(struct Decode *s);
+void isa_hostcall(uint32_t id, rtlreg_t *dest, const rtlreg_t *src1,
+    const rtlreg_t *src2, word_t imm);
 
 // memory
-enum { MEM_TYPE_IFETCH, MEM_TYPE_READ, MEM_TYPE_WRITE };
-enum { MEM_RET_OK, MEM_RET_NEED_TRANSLATE, MEM_RET_FAIL, MEM_RET_CROSS_PAGE };
-paddr_t isa_mmu_translate(vaddr_t vaddr, int type, int len);
-nemu_bool isa_mmu_safe(vaddr_t vaddr, int type);
-#ifndef isa_vaddr_check
-int isa_vaddr_check(vaddr_t vaddr, int type, int len);
+enum { MMU_DIRECT, MMU_TRANSLATE, MMU_DYNAMIC };
+enum { MEM_TYPE_IFETCH, MEM_TYPE_READ, MEM_TYPE_WRITE, MEM_TYPE_IFETCH_READ, MEM_TYPE_WRITE_READ }; // the last two is for ptw
+enum { MEM_RET_OK, MEM_RET_FAIL, MEM_RET_CROSS_PAGE };
+#ifndef isa_mmu_state
+int isa_mmu_state();
 #endif
-#define isa_has_mem_exception concat(__ISA__, _has_mem_exception)
+#ifndef isa_mmu_check
+int isa_mmu_check(vaddr_t vaddr, int len, int type);
+#endif
+paddr_t isa_mmu_translate(vaddr_t vaddr, int len, int type);
+bool isa_pmp_check_permission(paddr_t addr, int len, int type, int mode);
+
+// interrupt
+vaddr_t raise_intr(word_t NO, vaddr_t epc);
+#define INTR_EMPTY ((word_t)-1)
+word_t isa_query_intr();
 
 // difftest
   // for dut
-nemu_bool isa_difftest_checkregs(CPU_state *ref_r, vaddr_t pc);
+bool isa_difftest_checkregs(CPU_state *ref_r, vaddr_t pc);
 void isa_difftest_attach();
 
   // for ref
-void isa_difftest_getregs(void *r);
-void isa_difftest_setregs(const void *r);
+void isa_difftest_regcpy(void *dut, bool direction);
+void isa_difftest_csrcpy(void *dut, bool direction);
 void isa_difftest_raise_intr(word_t NO);
-void isa_difftest_get_mastatus(void *s);
-void isa_difftest_set_mastatus(const void *s);
-void isa_difftest_get_csr(void *c);
-void isa_difftest_set_csr(const void *c);
-vaddr_t isa_disambiguate_exec(void *disambiguate_para);
-nemu_bool isa_difftest_microarchitectural_pf_check(vaddr_t addr);
+void isa_difftest_uarchstatus_cpy(void *dut, bool direction);
+void isa_difftest_guided_exec(void *guide);
+void isa_difftest_query_ref(void *result_buffer, uint64_t type);
+#ifdef CONFIG_MULTICORE_DIFF
+void isa_difftest_set_mhartid(int n);
+#endif
 
 #endif

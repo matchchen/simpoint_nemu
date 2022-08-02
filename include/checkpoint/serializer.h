@@ -21,8 +21,6 @@ class Serializer
 
     explicit Serializer();
 
-    void unserialize(const char *file);
-
     void init();
 
     bool shouldTakeCpt(uint64_t num_insts);
@@ -46,13 +44,12 @@ class Serializer
 
     std::map<uint64_t, double> simpoint2Weights;
 
-    uint64_t nextNormalPoint;
-    uint64_t triggerPointCnt;
+    uint64_t nextUniformPoint;
 };
 
 extern Serializer serializer;
 
 #define RESTORER_START 0
-#define MAX_RESTORER_SIZE 0x80000
+#define MAX_RESTORER_SIZE 0xa000
 
 #endif //NEMU_SERIALIZER_H

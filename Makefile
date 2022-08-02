@@ -1,132 +1,159 @@
-NAME = nemu
-
-ifneq ($(MAKECMDGOALS),clean) # ignore check for make clean
-ISA ?= x86
-ISAS = $(shell ls src/isa/)
-ifeq ($(filter $(ISAS), $(ISA)), ) # ISA must be valid
-$(error Invalid ISA. Supported: $(ISAS))
+ifeq ($(wildcard $(NEMU_HOME)/src/nemu-main.c),)
+  $(error NEMU_HOME=$(NEMU_HOME) is not a NEMU repo)
 endif
 
-ENGINE ?= interpreter
-ENGINES = $(shell ls src/engine/)
-ifeq ($(filter $(ENGINES), $(ENGINE)), ) # ENGINE must be valid
-$(error Invalid ENGINE. Supported: $(ENGINES))
-endif
+-include $(NEMU_HOME)/include/config/auto.conf
+-include $(NEMU_HOME)/include/config/auto.conf.cmd
 
-$(info Building $(ISA)-$(NAME)-$(ENGINE))
+DIRS-y = src/cpu src/monitor src/utils
+DIRS-$(CONFIG_MODE_SYSTEM) += src/memory
 
-endif
+remove_quote = $(patsubst "%",%,$(1))
 
-INC_DIR += ./include ./src/engine/$(ENGINE) ./src/isa/riscv64/softfloat ./resource
-BUILD_DIR ?= ./build
+ISA    ?= $(if $(CONFIG_ISA),$(call remove_quote,$(CONFIG_ISA)),x86)
+CFLAGS += -D__ISA__=$(ISA)
+# CFLAGS += -g
+INC_DIR += $(NEMU_HOME)/src/isa/$(ISA)/include
+DIRS-y += src/isa/$(ISA)
 
-ifdef SHARE
-SO = -so
-SO_CFLAGS = -fPIC -D_SHARE=1
-SO_LDLAGS = -shared -fPIC
-endif
+ENGINE ?= $(call remove_quote,$(CONFIG_ENGINE))
+INC_DIR += $(NEMU_HOME)/src/engine/$(ENGINE)
+DIRS-y += src/engine/$(ENGINE)
 
-ifndef SHARE
-DIFF ?= kvm
-ifneq ($(ISA),x86)
-ifeq ($(DIFF),kvm)
-DIFF = qemu
-$(info KVM is only supported with ISA=x86, use QEMU instead)
-endif
-endif
+DIRS-$(CONFIG_MODE_USER) += src/user
 
-ifeq ($(DIFF),qemu)
-DIFF_REF_PATH = $(NEMU_HOME)/tools/qemu-diff
-DIFF_REF_SO = $(DIFF_REF_PATH)/build/$(ISA)-qemu-so
-CFLAGS += -D__DIFF_REF_QEMU__
-else ifeq ($(DIFF),kvm)
-DIFF_REF_PATH = $(NEMU_HOME)/tools/kvm-diff
-DIFF_REF_SO = $(DIFF_REF_PATH)/build/$(ISA)-kvm-so
-CFLAGS += -D__DIFF_REF_KVM__
-else ifeq ($(DIFF),nemu)
-DIFF_REF_PATH = $(NEMU_HOME)
-DIFF_REF_SO = $(DIFF_REF_PATH)/build/$(ISA)-nemu-interpreter-so
-CFLAGS += -D__DIFF_REF_NEMU__
-MKFLAGS = ISA=$(ISA) SHARE=1 ENGINE=interpreter
+SRCS-y += src/nemu-main.c
+DIRS-$(CONFIG_DEVICE) += src/device/io
+SRCS-$(CONFIG_DEVICE) += src/device/device.c src/device/alarm.c src/device/intr.c
+SRCS-$(CONFIG_HAS_SERIAL) += src/device/serial.c
+SRCS-$(CONFIG_HAS_UARTLITE) += src/device/uartlite.c
+SRCS-$(CONFIG_HAS_TIMER) += src/device/timer.c
+SRCS-$(CONFIG_HAS_KEYBOARD) += src/device/keyboard.c
+SRCS-$(CONFIG_HAS_VGA) += src/device/vga.c
+SRCS-$(CONFIG_HAS_AUDIO) += src/device/audio.c
+SRCS-$(CONFIG_HAS_DISK) += src/device/disk.c
+SRCS-$(CONFIG_HAS_SDCARD) += src/device/sdcard.c
+SRCS-$(CONFIG_HAS_FLASH) += src/device/flash.c
+
+SRCS-y += $(shell find $(DIRS-y) -name "*.c")
+
+SRCS = $(SRCS-y)
+
+DIRS-cpp = src/checkpoint src/base src/iostream3 src/profiling
+DIRS-y += src/profiling src/checkpoint # profiling.c and cpt_env.c
+XSRCS = $(shell find $(DIRS-cpp) -name "*.cpp")
+
+CC = $(call remove_quote,$(CONFIG_CC))
+CXX = $(call remove_quote,$(CONFIG_CXX))
+CFLAGS_BUILD += $(call remove_quote,$(CONFIG_CC_OPT))
+CFLAGS_BUILD += $(if $(CONFIG_CC_LTO),-flto,)
+CFLAGS_BUILD += $(if $(CONFIG_CC_DEBUG),-ggdb3,)
+CFLAGS_BUILD += $(if $(CONFIG_CC_ASAN),-fsanitize=address,)
+CFLAGS  += $(CFLAGS_BUILD)
+LDFLAGS += $(CFLAGS_BUILD)
+
+NAME  = nemu-$(ENGINE)
+
+LDFLAGS += -lz -lprotobuf
+
+ifndef CONFIG_SHARE
+LDFLAGS += -lreadline -ldl -pie
 else
-$(error invalid DIFF. Supported: qemu kvm nemu)
-endif
-endif
-
-OBJ_DIR ?= $(BUILD_DIR)/obj-$(ISA)-$(ENGINE)$(SO)
-BINARY ?= $(BUILD_DIR)/$(ISA)-$(NAME)-$(ENGINE)$(SO)
-
-include Makefile.git
-
-.DEFAULT_GOAL = app
-
-ifdef XIANGSHAN
-	CFLAGS += -DXIANGSHAN=1
+SHARE = 1
 endif
 
-# Compilation flags
-CC = g++
-LD = g++
-INCLUDES  = $(addprefix -I, $(INC_DIR))
-CFLAGS   += -O2 -MMD -Wno-format -Wall \
-			-std=c++17 \
-			-lstdc++fs \
-			-Werror \
-			-ggdb3 $(INCLUDES) \
-			-DCOMP_TIME_CSR \
-            -D__ENGINE_$(ENGINE)__ \
-            -D__SIMPOINT \
-	    -DFLAT_CPTPATH \
-            -D__ECPT_COMPATIBLE__ \
-            -D__ISA__=$(ISA) -D__ISA_$(ISA)__ -D_ISA_H_=\"isa/$(ISA).h\"
-			# -Wc++-compat \
+ifdef CONFIG_DEVICE
+LDFLAGS += -lSDL2
+endif
 
-# Files to be compiled
-SRCS = $(shell find src/ -name "*.c" | grep -v "isa\|engine")
-CPP_SRCS += $(shell find src/ -name "*.cpp" | grep -v "isa\|engine")
-SRCS += $(shell find src/isa/$(ISA) -name "*.c")
-SRCS += $(shell find src/engine/$(ENGINE) -name "*.c")
-OBJS = $(SRCS:src/%.c=$(OBJ_DIR)/%.o)
-CPP_OBJS += $(CPP_SRCS:src/%.cpp=$(OBJ_DIR)/%.o)
-OBJS += $(CPP_OBJS)
+ifdef CONFIG_FPU_SOFT
+SOFTFLOAT = resource/softfloat/build/softfloat.a
+ifeq ($(ISA),riscv64)
+SPECIALIZE_TYPE = RISCV
+else
+SPECIALIZE_TYPE = 8086-SSE
+endif
+ifdef CONFIG_SHARE
+SOFTFLOAT_OPTS_DEFAULT = -DINLINE_LEVEL=5 \
+  -DSOFTFLOAT_FAST_DIV32TO16 -DSOFTFLOAT_FAST_DIV64TO32
+SOFTFLOAT_OPTS_OVERRIDE = SOFTFLOAT_OPTS="$(SOFTFLOAT_OPTS_DEFAULT) -fPIC"
+endif
 
-# Compilation patterns
+SOFTFLOAT_REPO_PATH = resource/softfloat/repo
+ifeq ($(wildcard $(SOFTFLOAT_REPO_PATH)/COPYING.txt),)
+  $(shell git clone --depth=1 https://github.com/ucb-bar/berkeley-softfloat-3 $(SOFTFLOAT_REPO_PATH))
+endif
+SOFTFLOAT_BUILD_PATH = $(abspath $(SOFTFLOAT_REPO_PATH)/build/Linux-x86_64-GCC)
 
-$(OBJ_DIR)/isa/riscv64/softfloat/%.o: src/isa/riscv64/softfloat/%.c
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -D__cplusplus -w -fPIC -c -o $@ $<
+INC_DIR += $(SOFTFLOAT_REPO_PATH)/source/include
+INC_DIR += $(SOFTFLOAT_REPO_PATH)/source/$(SPECIALIZE_TYPE)
+LIBS += $(SOFTFLOAT)
+$(SOFTFLOAT):
+	SPECIALIZE_TYPE=$(SPECIALIZE_TYPE) $(SOFTFLOAT_OPTS_OVERRIDE) $(MAKE) -s -C $(SOFTFLOAT_BUILD_PATH) all
+	mkdir -p $(@D)
+	ln -sf $(SOFTFLOAT_BUILD_PATH)/softfloat.a $@
 
-$(OBJ_DIR)/%.o: src/%.c
-	@echo + CC $<
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) $(SO_CFLAGS) -c -o $@ $<
+clean-softfloat:
+	$(MAKE) -s -C $(SOFTFLOAT_BUILD_PATH) clean
+clean-all: clean-softfloat
 
-$(OBJ_DIR)/%.o: src/%.cpp
-	@echo + CC $<
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) $(SO_CFLAGS) -c -o $@ $<
+.PHONY: $(SOFTFLOAT) clean-softfloat
+else ifdef CONFIG_FPU_HOST
+LDFLAGS += -lm
+endif
 
+LZ4 = resource/lz4/lib/liblz4.a
+LZ4_REPO_PATH = resource/lz4
+INC_DIR += $(LZ4_REPO_PATH)/lib
+LIBS += $(LZ4)
 
-# Depencies
--include $(OBJS:.o=.d)
+$(LZ4):
+	$(MAKE) -s -C $(LZ4_REPO_PATH)
+
+ZSTD = resource/zstd/lib/libzstd.a
+ZSTD_REPO_PATH = resource/zstd
+INC_DIR += $(ZSTD_REPO_PATH)/lib
+LIBS += $(ZSTD)
+
+$(ZSTD):
+	$(MAKE) -s -C $(ZSTD_REPO_PATH)
+
+ROARING = resource/CRoaring/libroaring.a
+ROARING_REPO_PATH = resource/CRoaring
+INC_DIR += $(ROARING_REPO_PATH)/include
+LIBS += $(ROARING)
+
+include $(NEMU_HOME)/scripts/git.mk
+include $(NEMU_HOME)/scripts/config.mk
+include $(NEMU_HOME)/scripts/isa.mk
+include $(NEMU_HOME)/scripts/build.mk
+
+ifdef CONFIG_DIFFTEST
+DIFF_REF_PATH = $(NEMU_HOME)/$(call remove_quote,$(CONFIG_DIFFTEST_REF_PATH))
+DIFF_REF_SO = $(DIFF_REF_PATH)/build/$(ISA)-$(call remove_quote,$(CONFIG_DIFFTEST_REF_NAME))-so
+MKFLAGS = ISA=$(ISA) SHARE=1 ENGINE=interpreter
+ARGS_DIFF = --diff=$(DIFF_REF_SO)
+
+ifndef CONFIG_DIFFTEST_REF_NEMU
+$(DIFF_REF_SO):
+	$(MAKE) -s -C $(DIFF_REF_PATH) $(MKFLAGS)
+endif
+
+.PHONY: $(DIFF_REF_SO)
+endif
+
+compile_git:
+	$(call git_commit, "compile")
+$(BINARY): compile_git
 
 # Some convenient rules
 
-.PHONY: app run gdb clean run-env $(DIFF_REF_SO)
-app: $(BINARY)
-
 override ARGS ?= --log=$(BUILD_DIR)/nemu-log.txt
-override ARGS += --diff=$(DIFF_REF_SO)
+override ARGS += $(ARGS_DIFF)
 
 # Command to execute NEMU
-IMG :=
+IMG ?=
 NEMU_EXEC := $(BINARY) $(ARGS) $(IMG)
-
-$(BINARY): $(OBJS)
-	$(call git_commit, "compile")
-	@echo + LD $@
-	@$(LD) -O2 -rdynamic $(SO_LDLAGS) -o $@ $^ -lSDL2 -lreadline -ldl -lz -lstdc++fs
-# @echo + LD inputs $^
 
 run-env: $(BINARY) $(DIFF_REF_SO)
 
@@ -138,11 +165,10 @@ gdb: run-env
 	$(call git_commit, "gdb")
 	gdb -s $(BINARY) --args $(NEMU_EXEC)
 
-$(DIFF_REF_SO):
-	$(MAKE) -C $(DIFF_REF_PATH) $(MKFLAGS)
+clean-tools = $(dir $(shell find ./tools -name "Makefile"))
+$(clean-tools):
+	-@$(MAKE) -s -C $@ clean
+clean-tools: $(clean-tools)
+clean-all: clean distclean clean-tools
 
-clean:
-	-rm -rf $(BUILD_DIR)
-	$(MAKE) -C tools/gen-expr clean
-	$(MAKE) -C tools/qemu-diff clean
-	$(MAKE) -C tools/kvm-diff clean
+.PHONY: run gdb run-env clean-tools clean-all $(clean-tools)

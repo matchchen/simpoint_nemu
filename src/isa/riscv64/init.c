@@ -1,7 +1,5 @@
 #include <isa.h>
-#include <checkpoint/serializer.h>
 #include <memory/paddr.h>
-#include <monitor/monitor.h>
 #include "local-include/csr.h"
 
 static const uint32_t img [] = {
@@ -11,53 +9,64 @@ static const uint32_t img [] = {
   0x0000006b,  // nemu_trap
 };
 
-void init_clint(void);
+void init_csr();
+#ifndef CONFIG_SHARE
+void init_clint();
+#endif
+void init_device();
 
-void init_csr(void) {
-  extern void init_csr_exist();
-  init_csr_exist();
+void init_isa() {
+  init_csr();
 
-  cpu.mode = MODE_M;
-  mstatus->uxl = 2;
-  mstatus->sxl = 2;
-  mstatus->fs = 1;
-  misa->val = 0x14112D;
-  misa->mxl = 2;
-  Log("Mstatus: %#lx\n", mstatus->val);
-}
-
-void init_isa(void) {
-    cpu.gpr[0]._64 = 0;
-#ifdef __ECPT_COMPATIBLE__
-    cpu.pc = PMEM_BASE + RESTORER_START;
+#ifndef CONFIG_RESET_FROM_MMIO
+  cpu.pc = RESET_VECTOR;
 #else
-    cpu.pc = PMEM_BASE + IMAGE_START;
+  cpu.pc = CONFIG_MMIO_RESET_VECTOR;
 #endif
 
+  cpu.gpr[0]._64 = 0;
+
   cpu.mode = MODE_M;
-  if (!checkpointRestoring) {
-#if  !defined(__DIFF_REF_QEMU__) || defined(__SIMPOINT)
-    // QEMU seems to initialize mstatus with 0
-    mstatus->val = 0x00001800;
+  // For RV64 systems, the SXL and UXL fields are WARL fields that
+  // control the value of XLEN for S-mode and U-mode, respectively.
+  // For RV64 systems, if S-mode is not supported, then SXL is hardwired to zero.
+  // For RV64 systems, if U-mode is not supported, then UXL is hardwired to zero.
+  mstatus->val = 0xaUL << 32;
+
+  pmpcfg0->val = 0;
+  pmpcfg1->val = 0;
+  pmpcfg2->val = 0;
+  pmpcfg3->val = 0;
+
+#ifdef CONFIG_RV_SVINVAL
+  srnctl->val = 3; // enable extension 'svinval' [1]
 #endif
-//  Log("Mstatus: 0x%x", mstatus->val);
 
 #define ext(e) (1 << ((e) - 'a'))
-    misa->extensions = ext('i') | ext('m') | ext('a') | ext('c') | ext('s') | ext('u');
-    misa->extensions |= ext('d') | ext('f');
-    misa->mxl = 2; // XLEN = 64
+  misa->extensions = ext('i') | ext('m') | ext('a') | ext('c') | ext('s') | ext('u');
+  misa->extensions |= ext('d') | ext('f');
+  misa->mxl = 2; // XLEN = 64
 
-    extern char *cpt_file;
-    if (!cpt_file) {
-      memcpy(guest_to_host(IMAGE_START), img, sizeof(img));
-    }
+#ifdef CONFIG_RVV_010
+  // vector
+  vl->val = 0;
+  vtype->val = 0; // actually should be 1 << 63 (set vill bit to forbidd)
+#endif // CONFIG_RVV_010
+
+#ifndef CONFIG_SHARE
+  extern char *cpt_file;
+  extern bool checkpoint_restoring;
+  if (cpt_file == NULL && !checkpoint_restoring) {
+    memcpy(guest_to_host(RESET_VECTOR), img, sizeof(img));
   }
+#else
+  memcpy(guest_to_host(RESET_VECTOR), img, sizeof(img));
+#endif
 
-  init_clint();
-  extern void init_sdcard(const char *img);
-  extern char *sdcard_img;
-  init_sdcard(sdcard_img);
-  init_csr();
+  IFNDEF(CONFIG_SHARE, init_clint());
+  IFDEF(CONFIG_SHARE, init_device());
+
+#ifndef CONFIG_SHARE
+  Log("NEMU will start from pc 0x%lx", cpu.pc);
+#endif
 }
-
-

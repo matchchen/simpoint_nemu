@@ -171,7 +171,7 @@ OutputDirectory::setDirectory(const string &d)
     // Try to create the directory. If it already exists, that's ok;
     // otherwise, fail if we couldn't create it.
     if ((mkdir(dir.c_str(), 0755) != 0) && (errno != EEXIST))
-        xpanic("Failed to create new output subdirectory '%s'\n", dir);
+        xpanic("Failed to create new output subdirectory '%s'\n", dir.c_str());
 
     // Check if we need to recreate anything
     if (!old_dir.empty()) {
@@ -306,7 +306,7 @@ OutputDirectory::remove(const string &name, bool recursive)
         }
 
         if (::remove(fname.c_str()) != 0)
-            xpanic("Could not erase file '%s'\n", fname);
+            xpanic("Could not erase file '%s'\n", fname.c_str());
     } else {
         // assume 'name' is a directory
         if (recursive) {
@@ -320,7 +320,7 @@ OutputDirectory::remove(const string &name, bool recursive)
             if (!subdir) {
                 perror("opendir");
                 xpanic("Error opening directory for recursive removal '%s'\n",
-                      fname);
+                      fname.c_str());
             }
 
             struct dirent *de = readdir(subdir);

@@ -78,26 +78,25 @@ namespace SimPointNS {
 class SimPoint
 {
   public:
-    using BasicBlockRange = SimPointNS::BasicBlockRange;
-    using Addr = SimPointNS::Addr;
-
     SimPoint();
 
-    ~SimPoint();
+    virtual ~SimPoint();
 
-    void init();
+    virtual void init();
 
     /**
      * Profile basic blocks for SimPoints.
      * Called at every macro inst to increment basic block inst counts and
      * to profile block if end of block.
      */
-    void profile(Addr pc, bool is_control, bool is_last_uop);
+    void profile(Addr pc, bool is_control, bool is_last_uop, unsigned instr_count);
+
+    void profile_with_abs_icount(Addr pc, bool is_control, bool is_last_uop, uint64_t abs_icount);
 
   private:
+    uint64_t lastICount{0};
     /** SimPoint profiling interval size in instructions */
-    uint64_t intervalSize{10 * 1000 * 1000};
-    // static constexpr uint64_t intervalSize = 200 * 1000 * 1000;
+    uint64_t intervalSize;
 
     /** Inst count in current basic block */
     uint64_t intervalCount;
@@ -123,11 +122,8 @@ class SimPoint
     BasicBlockRange currentBBV;
     /** inst count in current basic block */
     uint64_t currentBBVInstCount;
-
 };
 
-};
-
-extern SimPointNS::SimPoint simPointObj;
+}
 
 #endif // __CPU_SIMPLE_PROBES_SIMPOINT_HH__

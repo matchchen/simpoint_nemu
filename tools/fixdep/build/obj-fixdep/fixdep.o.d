@@ -1,0 +1,1 @@
+fixdep.o: fixdep.c
