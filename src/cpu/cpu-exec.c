@@ -170,7 +170,6 @@ Decode* jr_fetch(Decode *s, vaddr_t target) {
   if (likely(s->ntnext->pc == target)) return s->ntnext;
   return tcache_jr_fetch(s, target);
 }
-
 static inline void debug_difftest(Decode *_this, Decode *next) {
   IFDEF(CONFIG_IQUEUE, iqueue_commit(_this->pc, (void *)&_this->isa.instr.val, _this->snpc - _this->pc));
   IFDEF(CONFIG_DEBUG, debug_hook(_this->pc, _this->logbuf));
@@ -178,25 +177,24 @@ static inline void debug_difftest(Decode *_this, Decode *next) {
   IFDEF(CONFIG_DIFFTEST, cpu.pc = next->pc);
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, next->pc));
 }
-
 uint64_t per_bb_profile(Decode *prev_s, Decode *s, bool control_taken) {
   uint64_t abs_inst_count = get_abs_instr_count();
   if (profiling_state == SimpointProfiling && profiling_started) {
     simpoint_profiling(prev_s->pc, true, abs_inst_count);
     simpoint_profiling(s->pc, false, abs_inst_count);
   }
-
+  
 #ifdef CONFIG_DATAFLOW_PROF
   control_profile(prev_s->pc, s->pc, control_taken);
 #endif
-
   extern bool able_to_take_cpt();
   bool able_to_take = able_to_take_cpt() || force_cpt_mmode;
+ // able_to_take_cpt() == true ? printf("true") : printf("false");
+  able_to_take=true;
   if (checkpoint_taking && able_to_take &&
       ((recvd_manual_oneshot_cpt && !manual_cpt_quit) || profiling_started)) {
     // update cpu pc to point to next pc
     cpu.pc = s->pc;
-
     extern bool try_take_cpt(uint64_t icount);
     bool taken = try_take_cpt(abs_inst_count);
     if (taken) {
@@ -353,8 +351,10 @@ static void update_global() {
 
 /* Simulate how the CPU works. */
 void cpu_exec(uint64_t n) {
+  //printf("--->>> cpu_exec()\n");
   IFDEF(CONFIG_SHARE, assert(n <= 1));
   g_print_step = (n < MAX_INSTR_TO_PRINT);
+//  printf("	-> lico001\n");
   switch (nemu_state.state) {
     case NEMU_END: case NEMU_ABORT:
       printf("Program execution has ended. To restart the program, exit NEMU and run again.\n");
@@ -363,63 +363,73 @@ void cpu_exec(uint64_t n) {
       nemu_state.state = NEMU_RUNNING;
       Loge("Setting NEMU state to RUNNING");
   }
-
+//  printf("      -> lico002\n");
   uint64_t timer_start = get_time();
-
+ // printf("      -> lico002 -1\n");
   n_remain_total = n; // deal with setjmp()
   Loge("cpu_exec will exec %lu instrunctions", n_remain_total);
   int cause;
+ // printf("      -> lico002 -2\n");
   if ((cause = setjmp(jbuf_exec))) {
     n_remain -= prev_s->idx_in_bb - 1;
     // Here is exception handle
 #ifdef CONFIG_PERF_OPT
+ //   printf("      -> lico002 -3\n");
     update_global();
 #endif
+ //   printf("      -> lico002 -4\n");
     Loge("After update_global, n_remain: %i, n_remain_total: %li", n_remain, n_remain_total);
   }
-
+//  printf("      -> lico003\n");
   while (nemu_state.state == NEMU_RUNNING &&
       MUXDEF(CONFIG_ENABLE_INSTR_CNT, n_remain_total > 0, true)) {
 #ifdef CONFIG_DEVICE
     extern void device_update();
+  //  printf("      -> lico003 -1\n");
     device_update();
+   // printf("      -> lico003 -2\n");
 #endif
-
+   // printf("      -> lico004 -1\n");
     if (cause == NEMU_EXEC_EXCEPTION) {
+    //  printf("      -> lico004 -2\n");
       Loge("Handle NEMU_EXEC_EXCEPTION");
       cause = 0;
       cpu.pc = raise_intr(g_ex_cause, prev_s->pc);
       IFDEF(CONFIG_PERF_OPT, tcache_handle_exception(cpu.pc));
       IFDEF(CONFIG_SHARE, break);
     } else {
+  //    printf("      -> lico004 -3\n");
       word_t intr = MUXDEF(CONFIG_SHARE, INTR_EMPTY, isa_query_intr());
       if (intr != INTR_EMPTY) {
+//	printf("      -> lico004 -4\n");
         Loge("NEMU raise intr");
         cpu.pc = raise_intr(intr, cpu.pc);
         IFDEF(CONFIG_DIFFTEST, ref_difftest_raise_intr(intr));
         IFDEF(CONFIG_PERF_OPT, tcache_handle_exception(cpu.pc));
       }
     }
-
+   // printf("      -> lico004 -5\n");
     int n_batch = n_remain_total >= BATCH_SIZE ? BATCH_SIZE : n_remain_total;
     n_remain = execute(n_batch);
+   // printf("      -> lico004 -6\n");
 #ifdef CONFIG_PERF_OPT
     // return from execute
     update_global(cpu.pc);
+   // printf("      -> lico004 -7\n");
     Loge("n_remain_total: %lu", n_remain_total);
 #else
     n_remain_total -= n_batch;
 #endif
   }
-
+ // printf("      -> lico004\n");
   // If nemu_state.state is NEMU_RUNNING, n_remain_total should be zero.
   if (nemu_state.state == NEMU_RUNNING) {
     nemu_state.state = NEMU_QUIT;
   }
-
+ // printf("      -> lico005\n");
   uint64_t timer_end = get_time();
   g_timer += timer_end - timer_start;
-
+ // printf("      -> lico006\n");
   switch (nemu_state.state) {
     case NEMU_RUNNING: nemu_state.state = NEMU_STOP;
       Loge("NEMU stopped when running");
@@ -440,7 +450,9 @@ void cpu_exec(uint64_t n) {
       }
       break;
     case NEMU_QUIT:
+     // printf("      -> lico007\n");
 #ifndef CONFIG_SHARE
+      //printf("      -> lico008\n");
       monitor_statistic();
       beta_on_exit();
       extern char *mapped_cpt_file;  // defined in paddr.c
@@ -451,5 +463,7 @@ void cpu_exec(uint64_t n) {
 #else
       break;
 #endif
+     // printf("      -> lico009\n");
     }
+  //printf("      -> lico010\n");
 }

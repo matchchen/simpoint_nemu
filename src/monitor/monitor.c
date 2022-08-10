@@ -42,6 +42,7 @@ static inline void welcome() {
   Log("Build time: %s, %s", __TIME__, __DATE__);
   printf("Welcome to \33[1;41m\33[1;33m%s\33[0m-NEMU!\n", ne_str(__ISA__));
   printf("For help, type \"help\"\n");
+  // printf("--->>> lico01\n");
 }
 
 void sig_handler(int signum) {
@@ -224,6 +225,31 @@ static inline int parse_args(int argc, char *argv[]) {
   return 0;
 }
 
+#define RESTORER_START 0
+#define MAX_RESTORER_SIZE 0x80000
+
+static void load_ecpt_restorer() {
+  char restorer_file[0x80000];//size: SIM_DEVICE_ADDR
+  sprintf(restorer_file, "%s/resource/ecpt/build/ecpt.bin", getenv("NEMU_HOME"));
+
+  FILE *fp = fopen(restorer_file, "rb");
+  if (fp == NULL) Log("If ecpt restorer is not built, run `make` under $(NEMU_HOME)/resource/ecpt");
+  Assert(fp, "Can not open '%s'", restorer_file);
+  Log("Opening restorer file: %s", restorer_file);
+  fseek(fp, 0, SEEK_END);
+  long size = ftell(fp);
+  Log("restorer file size: 0x%llx", size);
+  Assert(size < MAX_RESTORER_SIZE, "Restorer size = %ld is too large", size);
+
+  fseek(fp, 0, SEEK_SET);
+  int ret = fread(guest_to_host(RESTORER_START), size, 1, fp);
+  assert(ret == 1);
+
+  fclose(fp);
+
+}
+
+
 void init_monitor(int argc, char *argv[]) {
   /* Perform some global initialization. */
 
@@ -276,6 +302,7 @@ void init_monitor(int argc, char *argv[]) {
   long img_size; // how large we should copy for difftest
 
   if (checkpoint_restoring) {
+    printf("checkpoint_restore\n");
     // When restoring cpt, gcpt restorer from cmdline is optional,
     // because a gcpt already ships a restorer
     assert(img_file != NULL);
@@ -296,11 +323,14 @@ void init_monitor(int argc, char *argv[]) {
     // boot: jump to restorer --> restorer jump to bbl
     assert(img_file != NULL);
     assert(restorer != NULL);
-
+    //printf("checkpoint_taking\n");
     bbl_start = RESET_VECTOR + CONFIG_BBL_OFFSET_WITH_CPT;
-
+    //bbl_start = 0xa0000;
+    //printf("bbl_start = %X\n",bbl_start);
     long restorer_size = load_img(restorer, "Gcpt restorer form cmdline", RESET_VECTOR, 0xf00);
     long bbl_size = load_img(img_file, "image (bbl/bare metal app) from cmdline", bbl_start, 0);
+    //long restorer_size = load_img(restorer, "Gcpt restorer form cmdline", 0x00000, 0xf00);
+    //long bbl_size = load_img(img_file, "image (bbl/bare metal app) from cmdline", 0xa0000, 0);
     img_size = restorer_size + bbl_size;
   } else {
     if (restorer != NULL) {
@@ -325,6 +355,7 @@ void init_monitor(int argc, char *argv[]) {
   //extern void init_tracer(const char *data_file, const char *inst_file);
   //init_tracer(etrace_data, etrace_inst);
 #endif
+  load_ecpt_restorer();
 
   /* Compile the regular expressions. */
   init_regex();

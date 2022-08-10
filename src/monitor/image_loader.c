@@ -53,6 +53,7 @@ long load_gz_img(const char *filename) {
 
 long load_img(char* img_name, char *which_img, uint64_t load_start, size_t img_size) {
   char *loading_img = img_name;
+  //load_start=0x00000;
   Log("Loading %s: %s\n", which_img, img_name);
   if (img_name == NULL) {
     Log("No image is given. Use the default build-in image/restorer.");

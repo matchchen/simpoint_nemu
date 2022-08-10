@@ -129,10 +129,10 @@ static inline def_DHelper(C_ADDI4SPN) {
   // Assert(imm != 0, "pc = " FMT_WORD, s->pc);
   if(unlikely(imm == 0)){ 
 #ifndef SHARE
-    panic("Invalid inst 0x0000: pc = " FMT_WORD, s->pc);
+    panic("SHAER =1; Invalid inst 0x0000: pc = " FMT_WORD, s->pc);
 #else
     if(!dynamic_config.ignore_illegal_mem_access){
-      panic("Invalid inst 0x0000: pc = " FMT_WORD, s->pc);
+      panic("SHARE = 0; Invalid inst 0x0000: pc = " FMT_WORD, s->pc);
     }
 #endif
   }

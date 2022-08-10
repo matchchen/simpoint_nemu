@@ -35,7 +35,7 @@ void PathManager::init() {
 
   if (profiling_state == SimpointCheckpointing || checkpoint_taking) {
     cptID = 0;
-  }
+   }
 
   Log("Cpt id: %i", cptID);
   workloadPath = statsBaseDir + "/" + configName + "/" + workloadName + "/";
@@ -63,7 +63,9 @@ void PathManager::setOutputDir() {
 }
 
 void PathManager::incCptID() {
+   Log("Cpt id: %i", cptID);
   cptID++;
+   Log("Cpt id: %i", cptID);
 }
 
 std::string PathManager::getOutputPath() const {

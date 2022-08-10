@@ -18,7 +18,8 @@
 #include <string>
 
 #include <fstream>
-#include <gcpt_restore/src/restore_rom_addr.h>
+//#include <gcpt_restore/src/restore_rom_addr.h>
+#include <ecpt/src/restore_rom_addr.h>
 
 using std::cout;
 using std::cerr;
@@ -48,20 +49,24 @@ extern bool log_enable();
 
 void Serializer::serializePMem(uint64_t inst_count) {
   // We must dump registers before memory to store them in the Generic Arch CPT
+  //printf("--->>> void Serializer::serializePMem(uint64_t inst_count).\n");
   assert(regDumped);
   const size_t PMEM_SIZE = CONFIG_MSIZE;
   uint8_t *pmem = get_pmem();
-
+  //printf("assert(restorer);\n");
   assert(restorer);
   FILE *fp = fopen(restorer, "rb");
   if (!fp) {
     xpanic("Cannot open restorer %s\n", restorer);
+    printf("Cannot open restorer %s\n", restorer);
   }
+  printf("successful open restorer %s\n", restorer);
   uint32_t restorer_size = 0x400;
   fseek(fp, 0, SEEK_SET);
   assert(restorer_size == fread(pmem, 1, restorer_size, fp));
   fclose(fp);
   Log("Put gcpt restorer %s to start of pmem", restorer);
+  printf("Put gcpt restorer %s to start of pmem", restorer);
 
   string filepath;
   if (profiling_state == SimpointCheckpointing) {
@@ -164,16 +169,20 @@ void Serializer::serializeRegs() {
   auto *mode_flag = (uint64_t *) (get_pmem() + CptFlagAddr + 8);
   *mode_flag = cpu.mode;
   Log("Record mode flag: 0x%lx at addr 0x%x", cpu.mode, BOOT_FLAGS+8);
-
+  //Log("ecpt 01");
   auto *mtime = (uint64_t *) (get_pmem() + CptFlagAddr + 16);
+  //Log("ecpt 02");
   extern word_t paddr_read(paddr_t addr, int len, int type, int mode, vaddr_t vaddr);
+  //Log("ecpt 03");
   *mtime = ::paddr_read(CLINT_MMIO+0xBFF8, 8, MEM_TYPE_READ, MODE_M, CLINT_MMIO+0xBFF8);
+  //Log("ecpt 04");
   Log("Record time: 0x%lx at addr 0x%x", cpu.mode, BOOT_FLAGS+16);
 
   auto *mtime_cmp = (uint64_t *) (get_pmem() + CptFlagAddr + 24);
+  //Log("ecpt 05");
   *mtime_cmp = ::paddr_read(CLINT_MMIO+0x4000, 8, MEM_TYPE_READ, MODE_M, CLINT_MMIO+0x4000);
   Log("Record time: 0x%lx at addr 0x%x", cpu.mode, BOOT_FLAGS+24);
-
+  //Log("ecpt 06");
   regDumped = true;
 }
 
@@ -225,21 +234,22 @@ bool Serializer::shouldTakeCpt(uint64_t num_insts) {
   extern bool profiling_started;
 
   if (profiling_state == SimpointCheckpointing) {
-      uint64_t next_point = simpoint2Weights.begin()->first * intervalSize + 100000;
+      uint64_t next_point = simpoint2Weights.begin()->first * intervalSize;
+      //uint64_t next_point = simpoint2Weights.begin()->first * intervalSize + 100000;
       if (num_insts >= next_point) {
-          Log("Should take cpt now: %lu", num_insts);
+          Log("lico1 Should take cpt now: %lu", num_insts);
           return true;
       } else if (num_insts % intervalSize == 0) {
-          Log("First cpt @ %lu, now: %lu",
+          Log("lico2 First cpt @ %lu, now: %lu",
                   next_point, num_insts);
       }
   } else if (checkpoint_taking && recvd_manual_oneshot_cpt){
-    Log("Take manual cpt now: %lu", num_insts);
+    Log("lico3 Take manual cpt now: %lu", num_insts);
     return true;
 
   } else if (checkpoint_taking && profiling_started){
       if (num_insts >= nextUniformPoint) {
-          Log("Should take cpt now: %lu", num_insts);
+          Log("lico4 Should take cpt now: %lu", num_insts);
           return true;
       }
   }
@@ -249,8 +259,10 @@ bool Serializer::shouldTakeCpt(uint64_t num_insts) {
 void Serializer::notify_taken(uint64_t i) {
   Log("Taking checkpoint @ instruction count %lu", i);
   if (profiling_state == SimpointCheckpointing) {
+  //  Log("lico --->>> simpoint() 01");
     simpoint2Weights.erase(simpoint2Weights.begin());
     if (!simpoint2Weights.empty()) {
+//	Log("lico --->>> simpoint() 02");
         pathManager.incCptID();
     } else {
       Log("All the checkpoints have been taken, exit...");
