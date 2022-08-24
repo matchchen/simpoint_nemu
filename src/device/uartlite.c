@@ -4,7 +4,7 @@
 #define CH_OFFSET 0
 #define UARTLITE_RX_FIFO  0x0
 
-#ifdef NEMU_SIM
+#ifdef NEMU_SIM  // In order to adapt to RTL UART serial port 
   #define UARTLITE_TX_FIFO  0x0
 #else
   #define UARTLITE_TX_FIFO  0x4

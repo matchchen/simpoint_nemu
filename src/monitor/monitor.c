@@ -9,8 +9,6 @@
 #include<signal.h>
 #include<unistd.h>
 
-#define ECPT_GET_CHECKPOINT 0X80000000
-
 #ifndef CONFIG_SHARE
 void init_aligncheck();
 void init_log(const char *log_file);
@@ -358,7 +356,7 @@ void init_monitor(int argc, char *argv[]) {
   //extern void init_tracer(const char *data_file, const char *inst_file);
   //init_tracer(etrace_data, etrace_inst);
 #endif
-if(CONFIG_MBASE == ECPT_GET_CHECKPOINT){
+if(CONFIG_MBASE == RESTORER_START){
   load_ecpt_restorer();
 }
   /* Compile the regular expressions. */

@@ -3,7 +3,7 @@
 
 2022/08/24
 1: add a new memory mapping for sim_rtl;
-2: modify ecpt Makefile for sim_rtl, "make CPU_ARCH=NEMU_SIM";
+2: modify ecpt Makefile for sim_rtl;
 
 
 ### Run baremetal app
