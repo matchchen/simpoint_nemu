@@ -3,7 +3,13 @@
 
 #define CH_OFFSET 0
 #define UARTLITE_RX_FIFO  0x0
-#define UARTLITE_TX_FIFO  0x4
+
+#ifdef NEMU_SIM  // In order to adapt to RTL UART serial port 
+  #define UARTLITE_TX_FIFO  0x0
+#else
+  #define UARTLITE_TX_FIFO  0x4
+#endif
+
 #define UARTLITE_STAT_REG 0x8
 #define UARTLITE_CTRL_REG 0xc
 
@@ -101,7 +107,11 @@ static void init_fifo() {
 #endif
 
 static void serial_io_handler(uint32_t offset, int len, bool is_write) {
-  assert(len == 1);
+#ifdef NEMU_SIM
+   assert(len == 4);
+#else
+   assert(len == 1);
+#endif
   switch (offset) {
     /* We bind the serial port with the host stdout in NEMU. */
     case UARTLITE_TX_FIFO:

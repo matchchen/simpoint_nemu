@@ -110,27 +110,10 @@ after_l2en:
   li x3, 0xe0000009
   csrs 0x7c3,x3 //mccr2
 
-#elif RESTORE_C910_FPGA
-#todo
-#elif RESTORE_A710_RTL
-  //Enable cpu performance
-  li t0, 0x70013
-  csrs 0x7c2,t0 //mcor
-  li t0, 0xe0410009
-  csrs 0x7c3,t0 //mccr2
-  li t0, 0x11ff
-  csrs 0x7c1,t0 //mhcr
-  li t0, 0x638000
-  csrs 0x7c0,t0 //mxstatus
-  li t0, 0x6e30c
-  csrs 0x7c5,t0 //mhint
-  csrsi 0x7f3,0x1 //msmpr
-
+#elif RESTORE_c910_FPGA
   # enable FPU and accelerator if present
   li t0, MSTATUS_FS | MSTATUS_XS
   csrs mstatus, t0
-#todo
-#elif RESTORE_A710_FPGA
 #todo
 #else
 #endif

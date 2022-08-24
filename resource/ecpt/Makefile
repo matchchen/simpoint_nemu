@@ -7,6 +7,8 @@ BINARY ?= $(BUILD_DIR)/$(NAME)
 
 .DEFAULT_GOAL = app
 
+CPU_ARCH :=
+
 # Compilation flags
 #CROSS_COMPILE = riscv64-unknown-linux-gnu-
 CROSS_COMPILE = riscv64-unknown-elf-
@@ -16,6 +18,12 @@ OBJDUMP = $(CROSS_COMPILE)objdump
 OBJCOPY = $(CROSS_COMPILE)objcopy
 INCLUDES  = $(addprefix -I, $(INC_DIR))
 CFLAGS   += -fno-PIE -mcmodel=medany -O2 -MMD -Wall -Werror $(INCLUDES)
+LINK_SCRIPT = restore.lds
+
+ifneq (${CPU_ARCH}, NEMU_SIM)
+  CFLAGS += -DNEMU_SIM=1
+  LINK_SCRIPT = restore_sim_rtl.lds
+endif
 
 # Files to be compiled
 SRCS = $(shell find src/ -name "*.[cS]")
@@ -36,7 +44,7 @@ $(OBJ_DIR)/%.o: %.S
 
 $(BINARY): $(OBJS)
 	@echo + LD $@
-	$(LD) -O2 -T restore.lds -o $@ $^
+	$(LD) -O2 -T $(LINK_SCRIPT) -o $@ $^
 	@$(OBJDUMP) -S $@ > $@.txt
 	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $@ $@.bin
 
