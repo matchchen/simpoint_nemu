@@ -30,7 +30,7 @@
   f(satp       , 0x180) \
   CUSTOM_CSR(f) \
   f(fflags     , 0x001) f(frm        , 0x002) f(fcsr       , 0x003) \
-  f(mtime      , 0xc01)
+  f(mtime      , 0xc01) f(cycle      , 0xc00) f(minstret   , 0xb02)
 #else
 #define CSRS(f) \
   f(mstatus    , 0x300) f(misa       , 0x301) f(medeleg    , 0x302) f(mideleg    , 0x303) \
@@ -369,6 +369,12 @@ CSR_STRUCT_END(fcsr)
 
 CSR_STRUCT_START(mtime)
 CSR_STRUCT_END(mtime)
+
+CSR_STRUCT_START(cycle)
+CSR_STRUCT_END(cycle)
+
+CSR_STRUCT_START(minstret)
+CSR_STRUCT_END(minstret)
 
 #ifdef CONFIG_RVV_010
 // TODO: implement these vcsr

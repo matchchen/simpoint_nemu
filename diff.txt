@@ -1,0 +1,1789 @@
+diff --git a/.config b/.config
+index 0e3318a..fe6669f 100644
+--- a/.config
++++ b/.config
+@@ -13,7 +13,7 @@ CONFIG_ISA64=y
+ #
+ # ISA-dependent Options for riscv64
+ #
+-CONFIG_CLINT_MMIO=0x38000000
++CONFIG_CLINT_MMIO=0x2000000
+ # CONFIG_MULTICORE_DIFF is not set
+ CONFIG_RVB=y
+ CONFIG_RVK=y
+@@ -67,11 +67,11 @@ CONFIG_DIFFTEST_REF_NAME="none"
+ #
+ # Memory Configuration
+ #
+-CONFIG_MBASE=0x00000
+-CONFIG_MSIZE=0x100000
+-CONFIG_BBL_OFFSET_WITH_CPT=0x00000
++CONFIG_MBASE=0x80000000
++CONFIG_MSIZE=0x8000000
++CONFIG_BBL_OFFSET_WITH_CPT=0xa0000
+ # CONFIG_RESET_FROM_MMIO is not set
+-CONFIG_PC_RESET_OFFSET=0xa0000
++CONFIG_PC_RESET_OFFSET=0x0
+ CONFIG_USE_MMAP=y
+ # CONFIG_MEM_RANDOM is not set
+ CONFIG_MEM_COMPRESS=y
+@@ -79,14 +79,10 @@ CONFIG_MEM_COMPRESS=y
+ 
+ CONFIG_DEVICE=y
+ CONFIG_HAS_PORT_IO=y
+-CONFIG_HAS_SERIAL=y
++# CONFIG_HAS_SERIAL is not set
+ CONFIG_HAS_UARTLITE=y
+-CONFIG_SERIAL_PORT=0x3f8
+-CONFIG_SERIAL_MMIO=0xa10003f8
+-# CONFIG_SERIAL_INPUT_FIFO is not set
+-# CONFIG_SERIAL_UARTLITE is not set
+ CONFIG_UARTLITE_PORT=0x3f8
+-CONFIG_UARTLITE_MMIO=0x40600000
++CONFIG_UARTLITE_MMIO=0x20100000
+ # CONFIG_UARTLITE_INPUT_FIFO is not set
+ CONFIG_HAS_TIMER=y
+ CONFIG_RTC_PORT=0x48
+diff --git a/.config.old b/.config.old
+index ec7c476..06563cc 100644
+--- a/.config.old
++++ b/.config.old
+@@ -13,7 +13,7 @@ CONFIG_ISA64=y
+ #
+ # ISA-dependent Options for riscv64
+ #
+-CONFIG_CLINT_MMIO=0x38000000
++CONFIG_CLINT_MMIO=0x2000000
+ # CONFIG_MULTICORE_DIFF is not set
+ CONFIG_RVB=y
+ CONFIG_RVK=y
+@@ -67,11 +67,11 @@ CONFIG_DIFFTEST_REF_NAME="none"
+ #
+ # Memory Configuration
+ #
+-CONFIG_MBASE=0xa0000
+-CONFIG_MSIZE=0x100000
+-CONFIG_BBL_OFFSET_WITH_CPT=0x00000
++CONFIG_MBASE=0x800a0000
++CONFIG_MSIZE=0x8000000
++CONFIG_BBL_OFFSET_WITH_CPT=0xa0000
+ # CONFIG_RESET_FROM_MMIO is not set
+-CONFIG_PC_RESET_OFFSET=0xa0000
++CONFIG_PC_RESET_OFFSET=0x0
+ CONFIG_USE_MMAP=y
+ # CONFIG_MEM_RANDOM is not set
+ CONFIG_MEM_COMPRESS=y
+@@ -79,14 +79,10 @@ CONFIG_MEM_COMPRESS=y
+ 
+ CONFIG_DEVICE=y
+ CONFIG_HAS_PORT_IO=y
+-CONFIG_HAS_SERIAL=y
++# CONFIG_HAS_SERIAL is not set
+ CONFIG_HAS_UARTLITE=y
+-CONFIG_SERIAL_PORT=0x3f8
+-CONFIG_SERIAL_MMIO=0xa10003f8
+-# CONFIG_SERIAL_INPUT_FIFO is not set
+-# CONFIG_SERIAL_UARTLITE is not set
+ CONFIG_UARTLITE_PORT=0x3f8
+-CONFIG_UARTLITE_MMIO=0x40600000
++CONFIG_UARTLITE_MMIO=0x20100000
+ # CONFIG_UARTLITE_INPUT_FIFO is not set
+ CONFIG_HAS_TIMER=y
+ CONFIG_RTC_PORT=0x48
+diff --git a/Makefile b/Makefile
+index 68af537..bdfbea0 100755
+--- a/Makefile
++++ b/Makefile
+@@ -1,7 +1,7 @@
+ ifeq ($(wildcard $(NEMU_HOME)/src/nemu-main.c),)
+   $(error NEMU_HOME=$(NEMU_HOME) is not a NEMU repo)
+ endif
+-
++CPU_ARCH := 
+ -include $(NEMU_HOME)/include/config/auto.conf
+ -include $(NEMU_HOME)/include/config/auto.conf.cmd
+ 
+@@ -43,6 +43,10 @@ DIRS-cpp = src/checkpoint src/base src/iostream3 src/profiling
+ DIRS-y += src/profiling src/checkpoint # profiling.c and cpt_env.c
+ XSRCS = $(shell find $(DIRS-cpp) -name "*.cpp")
+ 
++ifeq (${CPU_ARCH}, NEMU_SIM)
++  CFLAGS += -DNEMU_SIM=1
++endif
++
+ CC = $(call remove_quote,$(CONFIG_CC))
+ CXX = $(call remove_quote,$(CONFIG_CXX))
+ CFLAGS_BUILD += $(call remove_quote,$(CONFIG_CC_OPT))
+diff --git a/README.md b/README.md
+index 0367b36..76bbac6 100644
+--- a/README.md
++++ b/README.md
+@@ -1,5 +1,10 @@
+ 2022/08/10
+-modified tracing nemu for ecpt,it has been successfully tested on baremetal;
++1: modified tracing nemu for ecpt,it has been successfully tested on baremetal;
++
++2022/08/24
++1: add a new memory mapping for sim_rtl;
++2: modify ecpt Makefile for sim_rtl, "make CPU_ARCH=NEMU_SIM";
++
+ 
+ ### Run baremetal app
+ 
+@@ -18,5 +23,5 @@ modified tracing nemu for ecpt,it has been successfully tested on baremetal;
+ 3: get checkpoint
+ 
+ ./build/riscv64-nemu-interpreter  ./hello_world.bin -b -D ./spec_cpt -w workloadName 
+--C take_cpt -b -u -S ./spec_cpt/cluster/  --cpt-interval=1000 -r ./resource/ecpt/build/ecpt.bin
++-C take_cpt -S ./spec_cpt/cluster/  --cpt-interval=1000 -r ./resource/ecpt/build/ecpt.bin
+ 
+diff --git a/include/config/auto.conf b/include/config/auto.conf
+index 6113922..a48e8a5 100644
+--- a/include/config/auto.conf
++++ b/include/config/auto.conf
+@@ -7,14 +7,14 @@ CONFIG_DIFFTEST_REF_NAME="none"
+ CONFIG_ENGINE="interpreter"
+ CONFIG_VGA_SIZE_400x300=y
+ CONFIG_VGA_CTL_PORT=0x100
+-CONFIG_PC_RESET_OFFSET=0xa0000
++CONFIG_PC_RESET_OFFSET=0x0
+ CONFIG_HAS_PORT_IO=y
+ CONFIG_RTC_MMIO=0xa1000048
+ CONFIG_UARTLITE_PORT=0x3f8
+ CONFIG_SDCARD_CTL_MMIO=0x40002000
+ CONFIG_RV_SVINVAL=y
+ CONFIG_ENABLE_INSTR_CNT=y
+-CONFIG_MSIZE=0x100000
++CONFIG_MSIZE=0x8000000
+ CONFIG_CC_O2=y
+ CONFIG_PERF_OPT=y
+ CONFIG_DEVICE=y
+@@ -23,25 +23,22 @@ CONFIG_MODE_SYSTEM=y
+ CONFIG_HAS_UARTLITE=y
+ CONFIG_HAS_SDCARD=y
+ CONFIG_ILEN_MIN=2
+-CONFIG_BBL_OFFSET_WITH_CPT=0x00000
+-CONFIG_SERIAL_PORT=0x3f8
++CONFIG_BBL_OFFSET_WITH_CPT=0xa0000
+ CONFIG_TCACHE_SIZE=8192
+-CONFIG_HAS_SERIAL=y
+ CONFIG_CC_LTO=y
+ CONFIG_FB_ADDR=0x50000000
+ CONFIG_HAS_VGA=y
+ CONFIG_RVB=y
+-CONFIG_UARTLITE_MMIO=0x40600000
++CONFIG_UARTLITE_MMIO=0x20100000
+ CONFIG_HAS_TIMER=y
+ CONFIG_BB_LIST_SIZE=1024
+-CONFIG_MBASE=0x00000
++CONFIG_MBASE=0x80000000
+ CONFIG_TIMER_GETTIMEOFDAY=y
+ CONFIG_FPU_SOFT=y
+ CONFIG_ENGINE_INTERPRETER=y
+ CONFIG_RTC_PORT=0x48
+ CONFIG_SDCARD_IMG_PATH=""
+ CONFIG_CC_OPT="-O2"
+-CONFIG_SERIAL_MMIO=0xa10003f8
+ CONFIG_I8042_DATA_PORT=0x60
+ CONFIG_RT_CHECK=y
+ CONFIG_ISA64=y
+@@ -50,7 +47,7 @@ CONFIG_RV_PMP_CSR=y
+ CONFIG_I8042_DATA_MMIO=0xa1000060
+ CONFIG_RVK=y
+ CONFIG_CC="gcc"
+-CONFIG_CLINT_MMIO=0x38000000
++CONFIG_CLINT_MMIO=0x2000000
+ CONFIG_DIFFTEST_REF_PATH="none"
+ CONFIG_MEM_COMPRESS=y
+ CONFIG_CC_GCC=y
+diff --git a/include/config/auto.conf.cmd b/include/config/auto.conf.cmd
+index 42c6c1b..32fccb8 100644
+--- a/include/config/auto.conf.cmd
++++ b/include/config/auto.conf.cmd
+@@ -3,7 +3,7 @@ deps_config := \
+ 	src/memory/Kconfig \
+ 	src/isa/riscv64/Kconfig \
+ 	src/isa/x86/Kconfig \
+-	/home/e0005120/lico/simpoint_nemu/Kconfig
++	/home/e0005120/nemu_linux/simpoint_nemu/Kconfig
+ 
+ include/config/auto.conf: \
+ 	$(deps_config)
+diff --git a/include/generated/autoconf.h b/include/generated/autoconf.h
+index 89e103a..3354d7d 100644
+--- a/include/generated/autoconf.h
++++ b/include/generated/autoconf.h
+@@ -9,14 +9,14 @@
+ #define CONFIG_ENGINE "interpreter"
+ #define CONFIG_VGA_SIZE_400x300 1
+ #define CONFIG_VGA_CTL_PORT 0x100
+-#define CONFIG_PC_RESET_OFFSET 0xa0000
++#define CONFIG_PC_RESET_OFFSET 0x0
+ #define CONFIG_HAS_PORT_IO 1
+ #define CONFIG_RTC_MMIO 0xa1000048
+ #define CONFIG_UARTLITE_PORT 0x3f8
+ #define CONFIG_SDCARD_CTL_MMIO 0x40002000
+ #define CONFIG_RV_SVINVAL 1
+ #define CONFIG_ENABLE_INSTR_CNT 1
+-#define CONFIG_MSIZE 0x100000
++#define CONFIG_MSIZE 0x8000000
+ #define CONFIG_CC_O2 1
+ #define CONFIG_PERF_OPT 1
+ #define CONFIG_DEVICE 1
+@@ -25,25 +25,22 @@
+ #define CONFIG_HAS_UARTLITE 1
+ #define CONFIG_HAS_SDCARD 1
+ #define CONFIG_ILEN_MIN 2
+-#define CONFIG_BBL_OFFSET_WITH_CPT 0x00000
+-#define CONFIG_SERIAL_PORT 0x3f8
++#define CONFIG_BBL_OFFSET_WITH_CPT 0xa0000
+ #define CONFIG_TCACHE_SIZE 8192
+-#define CONFIG_HAS_SERIAL 1
+ #define CONFIG_CC_LTO 1
+ #define CONFIG_FB_ADDR 0x50000000
+ #define CONFIG_HAS_VGA 1
+ #define CONFIG_RVB 1
+-#define CONFIG_UARTLITE_MMIO 0x40600000
++#define CONFIG_UARTLITE_MMIO 0x20100000
+ #define CONFIG_HAS_TIMER 1
+ #define CONFIG_BB_LIST_SIZE 1024
+-#define CONFIG_MBASE 0x00000
++#define CONFIG_MBASE 0x80000000
+ #define CONFIG_TIMER_GETTIMEOFDAY 1
+ #define CONFIG_FPU_SOFT 1
+ #define CONFIG_ENGINE_INTERPRETER 1
+ #define CONFIG_RTC_PORT 0x48
+ #define CONFIG_SDCARD_IMG_PATH ""
+ #define CONFIG_CC_OPT "-O2"
+-#define CONFIG_SERIAL_MMIO 0xa10003f8
+ #define CONFIG_I8042_DATA_PORT 0x60
+ #define CONFIG_RT_CHECK 1
+ #define CONFIG_ISA64 1
+@@ -52,7 +49,7 @@
+ #define CONFIG_I8042_DATA_MMIO 0xa1000060
+ #define CONFIG_RVK 1
+ #define CONFIG_CC "gcc"
+-#define CONFIG_CLINT_MMIO 0x38000000
++#define CONFIG_CLINT_MMIO 0x2000000
+ #define CONFIG_DIFFTEST_REF_PATH "none"
+ #define CONFIG_MEM_COMPRESS 1
+ #define CONFIG_CC_GCC 1
+diff --git a/resource/ecpt/Makefile b/resource/ecpt/Makefile
+index f5987e3..56e1879 100644
+--- a/resource/ecpt/Makefile
++++ b/resource/ecpt/Makefile
+@@ -7,6 +7,8 @@ BINARY ?= $(BUILD_DIR)/$(NAME)
+ 
+ .DEFAULT_GOAL = app
+ 
++CPU_ARCH :=
++
+ # Compilation flags
+ #CROSS_COMPILE = riscv64-unknown-linux-gnu-
+ CROSS_COMPILE = riscv64-unknown-elf-
+@@ -16,6 +18,12 @@ OBJDUMP = $(CROSS_COMPILE)objdump
+ OBJCOPY = $(CROSS_COMPILE)objcopy
+ INCLUDES  = $(addprefix -I, $(INC_DIR))
+ CFLAGS   += -fno-PIE -mcmodel=medany -O2 -MMD -Wall -Werror $(INCLUDES)
++LINK_SCRIPT = restore.lds
++
++ifeq (${CPU_ARCH}, NEMU_SIM)
++  CFLAGS += -DNEMU_SIM=1
++  LINK_SCRIPT = restore_sim_rtl.lds
++endif
+ 
+ # Files to be compiled
+ SRCS = $(shell find src/ -name "*.[cS]")
+@@ -36,7 +44,7 @@ $(OBJ_DIR)/%.o: %.S
+ 
+ $(BINARY): $(OBJS)
+ 	@echo + LD $@
+-	$(LD) -O2 -T restore.lds -o $@ $^
++	$(LD) -O2 -T $(LINK_SCRIPT) -o $@ $^
+ 	@$(OBJDUMP) -S $@ > $@.txt
+ 	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $@ $@.bin
+ 
+diff --git a/resource/ecpt/build/ecpt b/resource/ecpt/build/ecpt
+deleted file mode 100644
+index 41d41a4..0000000
+Binary files a/resource/ecpt/build/ecpt and /dev/null differ
+diff --git a/resource/ecpt/build/ecpt.bin b/resource/ecpt/build/ecpt.bin
+deleted file mode 100644
+index be4d055..0000000
+Binary files a/resource/ecpt/build/ecpt.bin and /dev/null differ
+diff --git a/resource/ecpt/build/ecpt.dump b/resource/ecpt/build/ecpt.dump
+deleted file mode 100644
+index 3ecd91a..0000000
+--- a/resource/ecpt/build/ecpt.dump
++++ /dev/null
+@@ -1,329 +0,0 @@
+-
+-ecpt:     file format elf64-littleriscv
+-
+-
+-Disassembly of section .boot1.code:
+-
+-0000000000000000 <init_early>:
+-   0:	004001b7          	lui	gp,0x400
+-   4:	7c01a073          	csrs	0x7c0,gp
+-   8:	6199                	lui	gp,0x6
+-   a:	3001a073          	csrs	mstatus,gp
+-   e:	008001b7          	lui	gp,0x800
+-  12:	3001a073          	csrs	mstatus,gp
+-  16:	61a1                	lui	gp,0x8
+-  18:	7c01a073          	csrs	0x7c0,gp
+-  1c:	006381b7          	lui	gp,0x638
+-  20:	7c01a073          	csrs	0x7c0,gp
+-  24:	7f30e073          	csrsi	0x7f3,1
+-  28:	4081                	li	ra,0
+-  2a:	4101                	li	sp,0
+-  2c:	4181                	li	gp,0
+-  2e:	4201                	li	tp,0
+-  30:	4281                	li	t0,0
+-  32:	4301                	li	t1,0
+-  34:	4381                	li	t2,0
+-  36:	4401                	li	s0,0
+-  38:	4481                	li	s1,0
+-  3a:	4501                	li	a0,0
+-  3c:	4581                	li	a1,0
+-  3e:	4601                	li	a2,0
+-  40:	4681                	li	a3,0
+-  42:	4701                	li	a4,0
+-  44:	4781                	li	a5,0
+-  46:	4801                	li	a6,0
+-  48:	4881                	li	a7,0
+-  4a:	4901                	li	s2,0
+-  4c:	4981                	li	s3,0
+-  4e:	4a01                	li	s4,0
+-  50:	4a81                	li	s5,0
+-  52:	4b01                	li	s6,0
+-  54:	4b81                	li	s7,0
+-  56:	4c01                	li	s8,0
+-  58:	4c81                	li	s9,0
+-  5a:	4d01                	li	s10,0
+-  5c:	4d81                	li	s11,0
+-  5e:	4e01                	li	t3,0
+-  60:	4e81                	li	t4,0
+-  62:	4f01                	li	t5,0
+-  64:	4f81                	li	t6,0
+-  66:	f14021f3          	csrr	gp,mhartid
+-  6a:	4205                	li	tp,1
+-  6c:	04304c63          	bgtz	gp,c4 <slave_harts>
+-
+-0000000000000070 <cpu_0_sp>:
+-  70:	000ee117          	auipc	sp,0xee
+-  74:	f9010113          	addi	sp,sp,-112 # ee000 <stack0>
+-  78:	00000197          	auipc	gp,0x0
+-  7c:	05418193          	addi	gp,gp,84 # cc <__trap_handler>
+-  80:	30519073          	csrw	mtvec,gp
+-  84:	41a1                	li	gp,8
+-  86:	3001a073          	csrs	mstatus,gp
+-  8a:	000701b7          	lui	gp,0x70
+-  8e:	21cd                	addiw	gp,gp,19
+-  90:	7c21a073          	csrs	0x7c2,gp
+-  94:	6185                	lui	gp,0x1
+-  96:	1ff1819b          	addiw	gp,gp,511
+-  9a:	7c11a073          	csrs	0x7c1,gp
+-
+-000000000000009e <after_l2en>:
+-  9e:	6185                	lui	gp,0x1
+-  a0:	1ff1819b          	addiw	gp,gp,511
+-  a4:	7c11a073          	csrs	0x7c1,gp
+-  a8:	0006e1b7          	lui	gp,0x6e
+-  ac:	30c1819b          	addiw	gp,gp,780
+-  b0:	7c51a073          	csrs	0x7c5,gp
+-  b4:	0070019b          	addiw	gp,zero,7
+-  b8:	01f6                	slli	gp,gp,0x1d
+-  ba:	01a5                	addi	gp,gp,9
+-  bc:	7c31a073          	csrs	0x7c3,gp
+-  c0:	7410f06f          	j	10000 <boot_decide_vector>
+-
+-00000000000000c4 <slave_harts>:
+-  c4:	10500073          	wfi
+-  c8:	bff5                	j	c4 <slave_harts>
+-  ca:	0001                	nop
+-
+-00000000000000cc <__trap_handler>:
+-  cc:	a001                	j	cc <__trap_handler>
+-	...
+-
+-Disassembly of section .boot2.code:
+-
+-0000000000010000 <boot_decide_vector>:
+-   10000:	6405                	lui	s0,0x1
+-   10002:	f004041b          	addiw	s0,s0,-256
+-   10006:	00043303          	ld	t1,0(s0) # 1000 <__trap_handler+0xf34>
+-   1000a:	63b1                	lui	t2,0xc
+-   1000c:	eef3839b          	addiw	t2,t2,-273
+-   10010:	00730463          	beq	t1,t2,10018 <restore_csr_vector>
+-   10014:	7ed8f06f          	j	a0000 <restore_int_vector+0x8fdb4>
+-
+-0000000000010018 <restore_csr_vector>:
+-   10018:	6285                	lui	t0,0x1
+-   1001a:	3002829b          	addiw	t0,t0,768
+-   1001e:	30000393          	li	t2,768
+-   10022:	038e                	slli	t2,t2,0x3
+-   10024:	9396                	add	t2,t2,t0
+-   10026:	0003b303          	ld	t1,0(t2) # c000 <__trap_handler+0xbf34>
+-   1002a:	30031073          	csrw	mstatus,t1
+-   1002e:	30100393          	li	t2,769
+-   10032:	038e                	slli	t2,t2,0x3
+-   10034:	9396                	add	t2,t2,t0
+-   10036:	0003b303          	ld	t1,0(t2)
+-   1003a:	30131073          	csrw	misa,t1
+-   1003e:	30200393          	li	t2,770
+-   10042:	038e                	slli	t2,t2,0x3
+-   10044:	9396                	add	t2,t2,t0
+-   10046:	0003b303          	ld	t1,0(t2)
+-   1004a:	30231073          	csrw	medeleg,t1
+-   1004e:	30300393          	li	t2,771
+-   10052:	038e                	slli	t2,t2,0x3
+-   10054:	9396                	add	t2,t2,t0
+-   10056:	0003b303          	ld	t1,0(t2)
+-   1005a:	30331073          	csrw	mideleg,t1
+-   1005e:	30400393          	li	t2,772
+-   10062:	038e                	slli	t2,t2,0x3
+-   10064:	9396                	add	t2,t2,t0
+-   10066:	0003b303          	ld	t1,0(t2)
+-   1006a:	30431073          	csrw	mie,t1
+-   1006e:	30500393          	li	t2,773
+-   10072:	038e                	slli	t2,t2,0x3
+-   10074:	9396                	add	t2,t2,t0
+-   10076:	0003b303          	ld	t1,0(t2)
+-   1007a:	30531073          	csrw	mtvec,t1
+-   1007e:	30600393          	li	t2,774
+-   10082:	038e                	slli	t2,t2,0x3
+-   10084:	9396                	add	t2,t2,t0
+-   10086:	0003b303          	ld	t1,0(t2)
+-   1008a:	30631073          	csrw	mcounteren,t1
+-   1008e:	34000393          	li	t2,832
+-   10092:	038e                	slli	t2,t2,0x3
+-   10094:	9396                	add	t2,t2,t0
+-   10096:	0003b303          	ld	t1,0(t2)
+-   1009a:	34031073          	csrw	mscratch,t1
+-   1009e:	34100393          	li	t2,833
+-   100a2:	038e                	slli	t2,t2,0x3
+-   100a4:	9396                	add	t2,t2,t0
+-   100a6:	0003b303          	ld	t1,0(t2)
+-   100aa:	34131073          	csrw	mepc,t1
+-   100ae:	34200393          	li	t2,834
+-   100b2:	038e                	slli	t2,t2,0x3
+-   100b4:	9396                	add	t2,t2,t0
+-   100b6:	0003b303          	ld	t1,0(t2)
+-   100ba:	34231073          	csrw	mcause,t1
+-   100be:	34300393          	li	t2,835
+-   100c2:	038e                	slli	t2,t2,0x3
+-   100c4:	9396                	add	t2,t2,t0
+-   100c6:	0003b303          	ld	t1,0(t2)
+-   100ca:	34331073          	csrw	mtval,t1
+-   100ce:	34400393          	li	t2,836
+-   100d2:	038e                	slli	t2,t2,0x3
+-   100d4:	9396                	add	t2,t2,t0
+-   100d6:	0003b303          	ld	t1,0(t2)
+-   100da:	34431073          	csrw	mip,t1
+-   100de:	3a000393          	li	t2,928
+-   100e2:	038e                	slli	t2,t2,0x3
+-   100e4:	9396                	add	t2,t2,t0
+-   100e6:	0003b303          	ld	t1,0(t2)
+-   100ea:	3a031073          	csrw	pmpcfg0,t1
+-   100ee:	3b000393          	li	t2,944
+-   100f2:	038e                	slli	t2,t2,0x3
+-   100f4:	9396                	add	t2,t2,t0
+-   100f6:	0003b303          	ld	t1,0(t2)
+-   100fa:	3b031073          	csrw	pmpaddr0,t1
+-   100fe:	3b100393          	li	t2,945
+-   10102:	038e                	slli	t2,t2,0x3
+-   10104:	9396                	add	t2,t2,t0
+-   10106:	0003b303          	ld	t1,0(t2)
+-   1010a:	3b131073          	csrw	pmpaddr1,t1
+-   1010e:	3b200393          	li	t2,946
+-   10112:	038e                	slli	t2,t2,0x3
+-   10114:	9396                	add	t2,t2,t0
+-   10116:	0003b303          	ld	t1,0(t2)
+-   1011a:	3b231073          	csrw	pmpaddr2,t1
+-   1011e:	3b300393          	li	t2,947
+-   10122:	038e                	slli	t2,t2,0x3
+-   10124:	9396                	add	t2,t2,t0
+-   10126:	0003b303          	ld	t1,0(t2)
+-   1012a:	3b331073          	csrw	pmpaddr3,t1
+-   1012e:	10500393          	li	t2,261
+-   10132:	038e                	slli	t2,t2,0x3
+-   10134:	9396                	add	t2,t2,t0
+-   10136:	0003b303          	ld	t1,0(t2)
+-   1013a:	10531073          	csrw	stvec,t1
+-   1013e:	10600393          	li	t2,262
+-   10142:	038e                	slli	t2,t2,0x3
+-   10144:	9396                	add	t2,t2,t0
+-   10146:	0003b303          	ld	t1,0(t2)
+-   1014a:	10631073          	csrw	scounteren,t1
+-   1014e:	14000393          	li	t2,320
+-   10152:	038e                	slli	t2,t2,0x3
+-   10154:	9396                	add	t2,t2,t0
+-   10156:	0003b303          	ld	t1,0(t2)
+-   1015a:	14031073          	csrw	sscratch,t1
+-   1015e:	14100393          	li	t2,321
+-   10162:	038e                	slli	t2,t2,0x3
+-   10164:	9396                	add	t2,t2,t0
+-   10166:	0003b303          	ld	t1,0(t2)
+-   1016a:	14131073          	csrw	sepc,t1
+-   1016e:	14200393          	li	t2,322
+-   10172:	038e                	slli	t2,t2,0x3
+-   10174:	9396                	add	t2,t2,t0
+-   10176:	0003b303          	ld	t1,0(t2)
+-   1017a:	14231073          	csrw	scause,t1
+-   1017e:	14300393          	li	t2,323
+-   10182:	038e                	slli	t2,t2,0x3
+-   10184:	9396                	add	t2,t2,t0
+-   10186:	0003b303          	ld	t1,0(t2)
+-   1018a:	14331073          	csrw	stval,t1
+-   1018e:	18000393          	li	t2,384
+-   10192:	038e                	slli	t2,t2,0x3
+-   10194:	9396                	add	t2,t2,t0
+-   10196:	0003b303          	ld	t1,0(t2)
+-   1019a:	18031073          	csrw	satp,t1
+-   1019e:	300022f3          	csrr	t0,mstatus
+-   101a2:	4321                	li	t1,8
+-   101a4:	005373b3          	and	t2,t1,t0
+-   101a8:	0392                	slli	t2,t2,0x4
+-   101aa:	3003a073          	csrs	mstatus,t2
+-   101ae:	30033073          	csrc	mstatus,t1
+-   101b2:	6289                	lui	t0,0x2
+-   101b4:	8002829b          	addiw	t0,t0,-2048
+-   101b8:	00843903          	ld	s2,8(s0)
+-   101bc:	00b91313          	slli	t1,s2,0xb
+-   101c0:	3002b073          	csrc	mstatus,t0
+-   101c4:	30032073          	csrs	mstatus,t1
+-   101c8:	6299                	lui	t0,0x6
+-   101ca:	3002a073          	csrs	mstatus,t0
+-   101ce:	438d                	li	t2,3
+-   101d0:	038e                	slli	t2,t2,0x3
+-   101d2:	9396                	add	t2,t2,t0
+-   101d4:	0003b303          	ld	t1,0(t2)
+-   101d8:	00331073          	fscsr	t1
+-   101dc:	380042b7          	lui	t0,0x38004
+-   101e0:	01843303          	ld	t1,24(s0)
+-   101e4:	0062b023          	sd	t1,0(t0) # 38004000 <stack0+0x37f16000>
+-   101e8:	3800c2b7          	lui	t0,0x3800c
+-   101ec:	32e1                	addiw	t0,t0,-8
+-   101ee:	01043303          	ld	t1,16(s0)
+-   101f2:	0062b023          	sd	t1,0(t0) # 3800c000 <stack0+0x37f1e000>
+-
+-00000000000101f6 <restore_float_vector>:
+-   101f6:	00001137          	lui	sp,0x1
+-   101fa:	1001011b          	addiw	sp,sp,256
+-   101fe:	2002                	fld	ft0,0(sp)
+-   10200:	20a2                	fld	ft1,8(sp)
+-   10202:	2142                	fld	ft2,16(sp)
+-   10204:	21e2                	fld	ft3,24(sp)
+-   10206:	3202                	fld	ft4,32(sp)
+-   10208:	32a2                	fld	ft5,40(sp)
+-   1020a:	3342                	fld	ft6,48(sp)
+-   1020c:	33e2                	fld	ft7,56(sp)
+-   1020e:	2406                	fld	fs0,64(sp)
+-   10210:	24a6                	fld	fs1,72(sp)
+-   10212:	2546                	fld	fa0,80(sp)
+-   10214:	25e6                	fld	fa1,88(sp)
+-   10216:	3606                	fld	fa2,96(sp)
+-   10218:	36a6                	fld	fa3,104(sp)
+-   1021a:	3746                	fld	fa4,112(sp)
+-   1021c:	37e6                	fld	fa5,120(sp)
+-   1021e:	280a                	fld	fa6,128(sp)
+-   10220:	28aa                	fld	fa7,136(sp)
+-   10222:	294a                	fld	fs2,144(sp)
+-   10224:	29ea                	fld	fs3,152(sp)
+-   10226:	3a0a                	fld	fs4,160(sp)
+-   10228:	3aaa                	fld	fs5,168(sp)
+-   1022a:	3b4a                	fld	fs6,176(sp)
+-   1022c:	3bea                	fld	fs7,184(sp)
+-   1022e:	2c0e                	fld	fs8,192(sp)
+-   10230:	2cae                	fld	fs9,200(sp)
+-   10232:	2d4e                	fld	fs10,208(sp)
+-   10234:	2dee                	fld	fs11,216(sp)
+-   10236:	3e0e                	fld	ft8,224(sp)
+-   10238:	3eae                	fld	ft9,232(sp)
+-   1023a:	3f4e                	fld	ft10,240(sp)
+-   1023c:	3fee                	fld	ft11,248(sp)
+-
+-000000000001023e <restore_pc_vector>:
+-   1023e:	6285                	lui	t0,0x1
+-   10240:	2002829b          	addiw	t0,t0,512
+-   10244:	0002b283          	ld	t0,0(t0) # 1000 <__trap_handler+0xf34>
+-   10248:	34129073          	csrw	mepc,t0
+-
+-000000000001024c <restore_int_vector>:
+-   1024c:	00001137          	lui	sp,0x1
+-   10250:	60a2                	ld	ra,8(sp)
+-   10252:	61e2                	ld	gp,24(sp)
+-   10254:	7202                	ld	tp,32(sp)
+-   10256:	72a2                	ld	t0,40(sp)
+-   10258:	7342                	ld	t1,48(sp)
+-   1025a:	73e2                	ld	t2,56(sp)
+-   1025c:	6406                	ld	s0,64(sp)
+-   1025e:	64a6                	ld	s1,72(sp)
+-   10260:	6546                	ld	a0,80(sp)
+-   10262:	65e6                	ld	a1,88(sp)
+-   10264:	7606                	ld	a2,96(sp)
+-   10266:	76a6                	ld	a3,104(sp)
+-   10268:	7746                	ld	a4,112(sp)
+-   1026a:	77e6                	ld	a5,120(sp)
+-   1026c:	680a                	ld	a6,128(sp)
+-   1026e:	68aa                	ld	a7,136(sp)
+-   10270:	694a                	ld	s2,144(sp)
+-   10272:	69ea                	ld	s3,152(sp)
+-   10274:	7a0a                	ld	s4,160(sp)
+-   10276:	7aaa                	ld	s5,168(sp)
+-   10278:	7b4a                	ld	s6,176(sp)
+-   1027a:	7bea                	ld	s7,184(sp)
+-   1027c:	6c0e                	ld	s8,192(sp)
+-   1027e:	6cae                	ld	s9,200(sp)
+-   10280:	6d4e                	ld	s10,208(sp)
+-   10282:	6dee                	ld	s11,216(sp)
+-   10284:	7e0e                	ld	t3,224(sp)
+-   10286:	7eae                	ld	t4,232(sp)
+-   10288:	7f4e                	ld	t5,240(sp)
+-   1028a:	7fee                	ld	t6,248(sp)
+-   1028c:	6142                	ld	sp,16(sp)
+-   1028e:	30200073          	mret
+-   10292:	0001                	nop
+-   10294:	00000013          	nop
+diff --git a/resource/ecpt/build/ecpt.txt b/resource/ecpt/build/ecpt.txt
+deleted file mode 100644
+index b1b7e45..0000000
+--- a/resource/ecpt/build/ecpt.txt
++++ /dev/null
+@@ -1,329 +0,0 @@
+-
+-build/ecpt:     file format elf64-littleriscv
+-
+-
+-Disassembly of section .boot1.code:
+-
+-0000000000000000 <init_early>:
+-   0:	004001b7          	lui	gp,0x400
+-   4:	7c01a073          	csrs	0x7c0,gp
+-   8:	6199                	lui	gp,0x6
+-   a:	3001a073          	csrs	mstatus,gp
+-   e:	008001b7          	lui	gp,0x800
+-  12:	3001a073          	csrs	mstatus,gp
+-  16:	61a1                	lui	gp,0x8
+-  18:	7c01a073          	csrs	0x7c0,gp
+-  1c:	006381b7          	lui	gp,0x638
+-  20:	7c01a073          	csrs	0x7c0,gp
+-  24:	7f30e073          	csrsi	0x7f3,1
+-  28:	4081                	li	ra,0
+-  2a:	4101                	li	sp,0
+-  2c:	4181                	li	gp,0
+-  2e:	4201                	li	tp,0
+-  30:	4281                	li	t0,0
+-  32:	4301                	li	t1,0
+-  34:	4381                	li	t2,0
+-  36:	4401                	li	s0,0
+-  38:	4481                	li	s1,0
+-  3a:	4501                	li	a0,0
+-  3c:	4581                	li	a1,0
+-  3e:	4601                	li	a2,0
+-  40:	4681                	li	a3,0
+-  42:	4701                	li	a4,0
+-  44:	4781                	li	a5,0
+-  46:	4801                	li	a6,0
+-  48:	4881                	li	a7,0
+-  4a:	4901                	li	s2,0
+-  4c:	4981                	li	s3,0
+-  4e:	4a01                	li	s4,0
+-  50:	4a81                	li	s5,0
+-  52:	4b01                	li	s6,0
+-  54:	4b81                	li	s7,0
+-  56:	4c01                	li	s8,0
+-  58:	4c81                	li	s9,0
+-  5a:	4d01                	li	s10,0
+-  5c:	4d81                	li	s11,0
+-  5e:	4e01                	li	t3,0
+-  60:	4e81                	li	t4,0
+-  62:	4f01                	li	t5,0
+-  64:	4f81                	li	t6,0
+-  66:	f14021f3          	csrr	gp,mhartid
+-  6a:	4205                	li	tp,1
+-  6c:	04304c63          	bgtz	gp,c4 <slave_harts>
+-
+-0000000000000070 <cpu_0_sp>:
+-  70:	000ee117          	auipc	sp,0xee
+-  74:	f9010113          	addi	sp,sp,-112 # ee000 <stack0>
+-  78:	00000197          	auipc	gp,0x0
+-  7c:	05418193          	addi	gp,gp,84 # cc <__trap_handler>
+-  80:	30519073          	csrw	mtvec,gp
+-  84:	41a1                	li	gp,8
+-  86:	3001a073          	csrs	mstatus,gp
+-  8a:	000701b7          	lui	gp,0x70
+-  8e:	21cd                	addiw	gp,gp,19
+-  90:	7c21a073          	csrs	0x7c2,gp
+-  94:	6185                	lui	gp,0x1
+-  96:	1ff1819b          	addiw	gp,gp,511
+-  9a:	7c11a073          	csrs	0x7c1,gp
+-
+-000000000000009e <after_l2en>:
+-  9e:	6185                	lui	gp,0x1
+-  a0:	1ff1819b          	addiw	gp,gp,511
+-  a4:	7c11a073          	csrs	0x7c1,gp
+-  a8:	0006e1b7          	lui	gp,0x6e
+-  ac:	30c1819b          	addiw	gp,gp,780
+-  b0:	7c51a073          	csrs	0x7c5,gp
+-  b4:	0070019b          	addiw	gp,zero,7
+-  b8:	01f6                	slli	gp,gp,0x1d
+-  ba:	01a5                	addi	gp,gp,9
+-  bc:	7c31a073          	csrs	0x7c3,gp
+-  c0:	7410f06f          	j	10000 <boot_decide_vector>
+-
+-00000000000000c4 <slave_harts>:
+-  c4:	10500073          	wfi
+-  c8:	bff5                	j	c4 <slave_harts>
+-  ca:	0001                	nop
+-
+-00000000000000cc <__trap_handler>:
+-  cc:	a001                	j	cc <__trap_handler>
+-	...
+-
+-Disassembly of section .boot2.code:
+-
+-0000000000010000 <boot_decide_vector>:
+-   10000:	6405                	lui	s0,0x1
+-   10002:	f004041b          	addiw	s0,s0,-256
+-   10006:	00043303          	ld	t1,0(s0) # 1000 <__trap_handler+0xf34>
+-   1000a:	63b1                	lui	t2,0xc
+-   1000c:	eef3839b          	addiw	t2,t2,-273
+-   10010:	00730463          	beq	t1,t2,10018 <restore_csr_vector>
+-   10014:	7ed8f06f          	j	a0000 <restore_int_vector+0x8fdb4>
+-
+-0000000000010018 <restore_csr_vector>:
+-   10018:	6285                	lui	t0,0x1
+-   1001a:	3002829b          	addiw	t0,t0,768
+-   1001e:	30000393          	li	t2,768
+-   10022:	038e                	slli	t2,t2,0x3
+-   10024:	9396                	add	t2,t2,t0
+-   10026:	0003b303          	ld	t1,0(t2) # c000 <__trap_handler+0xbf34>
+-   1002a:	30031073          	csrw	mstatus,t1
+-   1002e:	30100393          	li	t2,769
+-   10032:	038e                	slli	t2,t2,0x3
+-   10034:	9396                	add	t2,t2,t0
+-   10036:	0003b303          	ld	t1,0(t2)
+-   1003a:	30131073          	csrw	misa,t1
+-   1003e:	30200393          	li	t2,770
+-   10042:	038e                	slli	t2,t2,0x3
+-   10044:	9396                	add	t2,t2,t0
+-   10046:	0003b303          	ld	t1,0(t2)
+-   1004a:	30231073          	csrw	medeleg,t1
+-   1004e:	30300393          	li	t2,771
+-   10052:	038e                	slli	t2,t2,0x3
+-   10054:	9396                	add	t2,t2,t0
+-   10056:	0003b303          	ld	t1,0(t2)
+-   1005a:	30331073          	csrw	mideleg,t1
+-   1005e:	30400393          	li	t2,772
+-   10062:	038e                	slli	t2,t2,0x3
+-   10064:	9396                	add	t2,t2,t0
+-   10066:	0003b303          	ld	t1,0(t2)
+-   1006a:	30431073          	csrw	mie,t1
+-   1006e:	30500393          	li	t2,773
+-   10072:	038e                	slli	t2,t2,0x3
+-   10074:	9396                	add	t2,t2,t0
+-   10076:	0003b303          	ld	t1,0(t2)
+-   1007a:	30531073          	csrw	mtvec,t1
+-   1007e:	30600393          	li	t2,774
+-   10082:	038e                	slli	t2,t2,0x3
+-   10084:	9396                	add	t2,t2,t0
+-   10086:	0003b303          	ld	t1,0(t2)
+-   1008a:	30631073          	csrw	mcounteren,t1
+-   1008e:	34000393          	li	t2,832
+-   10092:	038e                	slli	t2,t2,0x3
+-   10094:	9396                	add	t2,t2,t0
+-   10096:	0003b303          	ld	t1,0(t2)
+-   1009a:	34031073          	csrw	mscratch,t1
+-   1009e:	34100393          	li	t2,833
+-   100a2:	038e                	slli	t2,t2,0x3
+-   100a4:	9396                	add	t2,t2,t0
+-   100a6:	0003b303          	ld	t1,0(t2)
+-   100aa:	34131073          	csrw	mepc,t1
+-   100ae:	34200393          	li	t2,834
+-   100b2:	038e                	slli	t2,t2,0x3
+-   100b4:	9396                	add	t2,t2,t0
+-   100b6:	0003b303          	ld	t1,0(t2)
+-   100ba:	34231073          	csrw	mcause,t1
+-   100be:	34300393          	li	t2,835
+-   100c2:	038e                	slli	t2,t2,0x3
+-   100c4:	9396                	add	t2,t2,t0
+-   100c6:	0003b303          	ld	t1,0(t2)
+-   100ca:	34331073          	csrw	mtval,t1
+-   100ce:	34400393          	li	t2,836
+-   100d2:	038e                	slli	t2,t2,0x3
+-   100d4:	9396                	add	t2,t2,t0
+-   100d6:	0003b303          	ld	t1,0(t2)
+-   100da:	34431073          	csrw	mip,t1
+-   100de:	3a000393          	li	t2,928
+-   100e2:	038e                	slli	t2,t2,0x3
+-   100e4:	9396                	add	t2,t2,t0
+-   100e6:	0003b303          	ld	t1,0(t2)
+-   100ea:	3a031073          	csrw	pmpcfg0,t1
+-   100ee:	3b000393          	li	t2,944
+-   100f2:	038e                	slli	t2,t2,0x3
+-   100f4:	9396                	add	t2,t2,t0
+-   100f6:	0003b303          	ld	t1,0(t2)
+-   100fa:	3b031073          	csrw	pmpaddr0,t1
+-   100fe:	3b100393          	li	t2,945
+-   10102:	038e                	slli	t2,t2,0x3
+-   10104:	9396                	add	t2,t2,t0
+-   10106:	0003b303          	ld	t1,0(t2)
+-   1010a:	3b131073          	csrw	pmpaddr1,t1
+-   1010e:	3b200393          	li	t2,946
+-   10112:	038e                	slli	t2,t2,0x3
+-   10114:	9396                	add	t2,t2,t0
+-   10116:	0003b303          	ld	t1,0(t2)
+-   1011a:	3b231073          	csrw	pmpaddr2,t1
+-   1011e:	3b300393          	li	t2,947
+-   10122:	038e                	slli	t2,t2,0x3
+-   10124:	9396                	add	t2,t2,t0
+-   10126:	0003b303          	ld	t1,0(t2)
+-   1012a:	3b331073          	csrw	pmpaddr3,t1
+-   1012e:	10500393          	li	t2,261
+-   10132:	038e                	slli	t2,t2,0x3
+-   10134:	9396                	add	t2,t2,t0
+-   10136:	0003b303          	ld	t1,0(t2)
+-   1013a:	10531073          	csrw	stvec,t1
+-   1013e:	10600393          	li	t2,262
+-   10142:	038e                	slli	t2,t2,0x3
+-   10144:	9396                	add	t2,t2,t0
+-   10146:	0003b303          	ld	t1,0(t2)
+-   1014a:	10631073          	csrw	scounteren,t1
+-   1014e:	14000393          	li	t2,320
+-   10152:	038e                	slli	t2,t2,0x3
+-   10154:	9396                	add	t2,t2,t0
+-   10156:	0003b303          	ld	t1,0(t2)
+-   1015a:	14031073          	csrw	sscratch,t1
+-   1015e:	14100393          	li	t2,321
+-   10162:	038e                	slli	t2,t2,0x3
+-   10164:	9396                	add	t2,t2,t0
+-   10166:	0003b303          	ld	t1,0(t2)
+-   1016a:	14131073          	csrw	sepc,t1
+-   1016e:	14200393          	li	t2,322
+-   10172:	038e                	slli	t2,t2,0x3
+-   10174:	9396                	add	t2,t2,t0
+-   10176:	0003b303          	ld	t1,0(t2)
+-   1017a:	14231073          	csrw	scause,t1
+-   1017e:	14300393          	li	t2,323
+-   10182:	038e                	slli	t2,t2,0x3
+-   10184:	9396                	add	t2,t2,t0
+-   10186:	0003b303          	ld	t1,0(t2)
+-   1018a:	14331073          	csrw	stval,t1
+-   1018e:	18000393          	li	t2,384
+-   10192:	038e                	slli	t2,t2,0x3
+-   10194:	9396                	add	t2,t2,t0
+-   10196:	0003b303          	ld	t1,0(t2)
+-   1019a:	18031073          	csrw	satp,t1
+-   1019e:	300022f3          	csrr	t0,mstatus
+-   101a2:	4321                	li	t1,8
+-   101a4:	005373b3          	and	t2,t1,t0
+-   101a8:	0392                	slli	t2,t2,0x4
+-   101aa:	3003a073          	csrs	mstatus,t2
+-   101ae:	30033073          	csrc	mstatus,t1
+-   101b2:	6289                	lui	t0,0x2
+-   101b4:	8002829b          	addiw	t0,t0,-2048
+-   101b8:	00843903          	ld	s2,8(s0)
+-   101bc:	00b91313          	slli	t1,s2,0xb
+-   101c0:	3002b073          	csrc	mstatus,t0
+-   101c4:	30032073          	csrs	mstatus,t1
+-   101c8:	6299                	lui	t0,0x6
+-   101ca:	3002a073          	csrs	mstatus,t0
+-   101ce:	438d                	li	t2,3
+-   101d0:	038e                	slli	t2,t2,0x3
+-   101d2:	9396                	add	t2,t2,t0
+-   101d4:	0003b303          	ld	t1,0(t2)
+-   101d8:	00331073          	fscsr	t1
+-   101dc:	380042b7          	lui	t0,0x38004
+-   101e0:	01843303          	ld	t1,24(s0)
+-   101e4:	0062b023          	sd	t1,0(t0) # 38004000 <stack0+0x37f16000>
+-   101e8:	3800c2b7          	lui	t0,0x3800c
+-   101ec:	32e1                	addiw	t0,t0,-8
+-   101ee:	01043303          	ld	t1,16(s0)
+-   101f2:	0062b023          	sd	t1,0(t0) # 3800c000 <stack0+0x37f1e000>
+-
+-00000000000101f6 <restore_float_vector>:
+-   101f6:	00001137          	lui	sp,0x1
+-   101fa:	1001011b          	addiw	sp,sp,256
+-   101fe:	2002                	fld	ft0,0(sp)
+-   10200:	20a2                	fld	ft1,8(sp)
+-   10202:	2142                	fld	ft2,16(sp)
+-   10204:	21e2                	fld	ft3,24(sp)
+-   10206:	3202                	fld	ft4,32(sp)
+-   10208:	32a2                	fld	ft5,40(sp)
+-   1020a:	3342                	fld	ft6,48(sp)
+-   1020c:	33e2                	fld	ft7,56(sp)
+-   1020e:	2406                	fld	fs0,64(sp)
+-   10210:	24a6                	fld	fs1,72(sp)
+-   10212:	2546                	fld	fa0,80(sp)
+-   10214:	25e6                	fld	fa1,88(sp)
+-   10216:	3606                	fld	fa2,96(sp)
+-   10218:	36a6                	fld	fa3,104(sp)
+-   1021a:	3746                	fld	fa4,112(sp)
+-   1021c:	37e6                	fld	fa5,120(sp)
+-   1021e:	280a                	fld	fa6,128(sp)
+-   10220:	28aa                	fld	fa7,136(sp)
+-   10222:	294a                	fld	fs2,144(sp)
+-   10224:	29ea                	fld	fs3,152(sp)
+-   10226:	3a0a                	fld	fs4,160(sp)
+-   10228:	3aaa                	fld	fs5,168(sp)
+-   1022a:	3b4a                	fld	fs6,176(sp)
+-   1022c:	3bea                	fld	fs7,184(sp)
+-   1022e:	2c0e                	fld	fs8,192(sp)
+-   10230:	2cae                	fld	fs9,200(sp)
+-   10232:	2d4e                	fld	fs10,208(sp)
+-   10234:	2dee                	fld	fs11,216(sp)
+-   10236:	3e0e                	fld	ft8,224(sp)
+-   10238:	3eae                	fld	ft9,232(sp)
+-   1023a:	3f4e                	fld	ft10,240(sp)
+-   1023c:	3fee                	fld	ft11,248(sp)
+-
+-000000000001023e <restore_pc_vector>:
+-   1023e:	6285                	lui	t0,0x1
+-   10240:	2002829b          	addiw	t0,t0,512
+-   10244:	0002b283          	ld	t0,0(t0) # 1000 <__trap_handler+0xf34>
+-   10248:	34129073          	csrw	mepc,t0
+-
+-000000000001024c <restore_int_vector>:
+-   1024c:	00001137          	lui	sp,0x1
+-   10250:	60a2                	ld	ra,8(sp)
+-   10252:	61e2                	ld	gp,24(sp)
+-   10254:	7202                	ld	tp,32(sp)
+-   10256:	72a2                	ld	t0,40(sp)
+-   10258:	7342                	ld	t1,48(sp)
+-   1025a:	73e2                	ld	t2,56(sp)
+-   1025c:	6406                	ld	s0,64(sp)
+-   1025e:	64a6                	ld	s1,72(sp)
+-   10260:	6546                	ld	a0,80(sp)
+-   10262:	65e6                	ld	a1,88(sp)
+-   10264:	7606                	ld	a2,96(sp)
+-   10266:	76a6                	ld	a3,104(sp)
+-   10268:	7746                	ld	a4,112(sp)
+-   1026a:	77e6                	ld	a5,120(sp)
+-   1026c:	680a                	ld	a6,128(sp)
+-   1026e:	68aa                	ld	a7,136(sp)
+-   10270:	694a                	ld	s2,144(sp)
+-   10272:	69ea                	ld	s3,152(sp)
+-   10274:	7a0a                	ld	s4,160(sp)
+-   10276:	7aaa                	ld	s5,168(sp)
+-   10278:	7b4a                	ld	s6,176(sp)
+-   1027a:	7bea                	ld	s7,184(sp)
+-   1027c:	6c0e                	ld	s8,192(sp)
+-   1027e:	6cae                	ld	s9,200(sp)
+-   10280:	6d4e                	ld	s10,208(sp)
+-   10282:	6dee                	ld	s11,216(sp)
+-   10284:	7e0e                	ld	t3,224(sp)
+-   10286:	7eae                	ld	t4,232(sp)
+-   10288:	7f4e                	ld	t5,240(sp)
+-   1028a:	7fee                	ld	t6,248(sp)
+-   1028c:	6142                	ld	sp,16(sp)
+-   1028e:	30200073          	mret
+-   10292:	0001                	nop
+-   10294:	00000013          	nop
+diff --git a/resource/ecpt/build/obj/src/boot1.d b/resource/ecpt/build/obj/src/boot1.d
+deleted file mode 100644
+index cbe4a57..0000000
+--- a/resource/ecpt/build/obj/src/boot1.d
++++ /dev/null
+@@ -1,2 +0,0 @@
+-build/obj/src/boot1.o: src/boot1.S src/restore_rom_addr.h src/encoding.h \
+- src/csr.h
+diff --git a/resource/ecpt/build/obj/src/boot1.o b/resource/ecpt/build/obj/src/boot1.o
+deleted file mode 100644
+index 42815f4..0000000
+Binary files a/resource/ecpt/build/obj/src/boot1.o and /dev/null differ
+diff --git a/resource/ecpt/build/obj/src/boot2.d b/resource/ecpt/build/obj/src/boot2.d
+deleted file mode 100644
+index fe20a2e..0000000
+--- a/resource/ecpt/build/obj/src/boot2.d
++++ /dev/null
+@@ -1,2 +0,0 @@
+-build/obj/src/boot2.o: src/boot2.S src/restore_rom_addr.h src/encoding.h \
+- src/csr.h
+diff --git a/resource/ecpt/build/obj/src/boot2.o b/resource/ecpt/build/obj/src/boot2.o
+deleted file mode 100644
+index bf508b9..0000000
+Binary files a/resource/ecpt/build/obj/src/boot2.o and /dev/null differ
+diff --git a/resource/ecpt/src/boot1.S b/resource/ecpt/src/boot1.S
+index f7e3996..51f1302 100644
+--- a/resource/ecpt/src/boot1.S
++++ b/resource/ecpt/src/boot1.S
+@@ -110,9 +110,9 @@ after_l2en:
+   li x3, 0xe0000009
+   csrs 0x7c3,x3 //mccr2
+ 
+-#elif RESTORE_C910_FPGA
++#elif RESTORE_SIM_9_FPGA
+ #todo
+-#elif RESTORE_A710_RTL
++#elif RESTORE_SIM_RTL
+   //Enable cpu performance
+   li t0, 0x70013
+   csrs 0x7c2,t0 //mcor
+@@ -130,7 +130,7 @@ after_l2en:
+   li t0, MSTATUS_FS | MSTATUS_XS
+   csrs mstatus, t0
+ #todo
+-#elif RESTORE_A710_FPGA
++#elif RESTORE_SIM_FPGA
+ #todo
+ #else
+ #endif
+diff --git a/resource/ecpt/src/boot2.S b/resource/ecpt/src/boot2.S
+index e2bd454..cc241a8 100644
+--- a/resource/ecpt/src/boot2.S
++++ b/resource/ecpt/src/boot2.S
+@@ -43,6 +43,7 @@ restore_csr_vector:
+   li t0, MSTATUS_FS
+   csrs  CSR_MSTATUS, t0
+   #restore fcsr
++  li t0, CSR_CPT_ADDR
+   CSRS_F(CSRS_RESTORE)
+ 
+   # set mtime (inaccurate) and mtimecmp
+diff --git a/resource/ecpt/src/csr.h b/resource/ecpt/src/csr.h
+index 7902835..5e0963b 100644
+--- a/resource/ecpt/src/csr.h
++++ b/resource/ecpt/src/csr.h
+@@ -1,40 +1,23 @@
+ #ifndef __CSR_H__
+ #define __CSR_H__
+ 
+-//no mhartid here
+-
+-#ifdef COMP_TIME_CSR 
++// for sim_rtl ecpt
+ #define CSRS(f) \
+   f(mstatus    , 0x300) f(misa       , 0x301) f(medeleg    , 0x302) f(mideleg    , 0x303) \
+   f(mie        , 0x304) f(mtvec      , 0x305) f(mcounteren , 0x306) \
+   f(mscratch   , 0x340) f(mepc       , 0x341) f(mcause     , 0x342) \
+   f(mtval      , 0x343) f(mip        , 0x344) \
+-  f(pmpcfg0    , 0x3a0) \
++  f(pmpcfg0    , 0x3a0)  \
+   f(pmpaddr0   , 0x3b0) f(pmpaddr1   , 0x3b1) f(pmpaddr2   , 0x3b2) f(pmpaddr3   , 0x3b3) \
+-  f(mhartid    , 0xf14) \
+   f(sstatus    , 0x100) \
+   f(sie        , 0x104) f(stvec      , 0x105) f(scounteren , 0x106) \
+   f(sscratch   , 0x140) f(sepc       , 0x141) f(scause     , 0x142) \
+   f(stval      , 0x143) f(sip        , 0x144) \
+-  f(satp       , 0x180) \
+-  f(fflags     , 0x001) f(frm        , 0x002) f(fcsr       , 0x003) \
+-  f(nemu_time    , 0xc01) f(cycle ,0xc00)
+-#else
+-#define CSRS(f) \
+-  f(mstatus    , 0x300) f(misa       , 0x301) f(medeleg    , 0x302) f(mideleg    , 0x303) \
+-  f(mie        , 0x304) f(mtvec      , 0x305) f(mcounteren , 0x306) \
+-  f(mscratch   , 0x340) f(mepc       , 0x341) f(mcause     , 0x342) \
+-  f(mtval      , 0x343) f(mip        , 0x344) \
+-  f(pmpcfg0    , 0x3a0) \
+-  f(pmpaddr0   , 0x3b0) f(pmpaddr1   , 0x3b1) f(pmpaddr2   , 0x3b2) f(pmpaddr3   , 0x3b3) \
+-  f(stvec      , 0x105) f(scounteren , 0x106) \
+-  f(sscratch   , 0x140) f(sepc       , 0x141) f(scause     , 0x142) \
+-  f(stval      , 0x143) \
+-  f(satp       , 0x180)
+-#endif
++  f(satp       , 0x180) 
++
+ 
+ #define CSRS_F(f) \
+-  f(fcsr       , 0x003) 
++  f(fcsr       , 0x003) f(frm        , 0x002) f(fflags     , 0x001)
+ 
+ 
+ #define CSRS_RESTORE(name, addr) \
+diff --git a/resource/ecpt/src/restore_rom_addr.h b/resource/ecpt/src/restore_rom_addr.h
+index 41e15f2..40bc39b 100644
+--- a/resource/ecpt/src/restore_rom_addr.h
++++ b/resource/ecpt/src/restore_rom_addr.h
+@@ -3,21 +3,36 @@
+ 
+ #define CPT_MAGIC_BUMBER    0xbeef
+ 
+-#define BOOT_CODE           0x0000000
+-#define BOOT_FLAGS          0x0000f00
+-#define INT_REG_CPT_ADDR    0x0001000
+-#define FLOAT_REG_CPT_ADDR  0x0001100
+-#define PC_CPT_ADDR         0x0001200
+-#define CSR_CPT_ADDR        0x0001300
+-#define BOOT2_CODE          0x0010000
+-#define SIM_DEVICE_ADDR     0x0080000
+-#define RESET_VECTOR        0x00a0000
+-
+-
+-#define CLINT_MMIO 0x38000000
++#ifdef NEMU_SIM   // for nemu_rtl verilator
++    #define BOOT_CODE           0x80000000
++    #define BOOT_FLAGS          0x80000f00
++    #define INT_REG_CPT_ADDR    0x80001000
++    #define FLOAT_REG_CPT_ADDR  0x80001100
++    #define PC_CPT_ADDR         0x80001200
++    #define CSR_CPT_ADDR        0x80001300
++    #define BOOT2_CODE          0x80010000
++    #define SIM_DEVICE_ADDR     0x80080000
++    #define RESET_VECTOR        0x800a0000
++
++    #define CLINT_MMIO          0x2000000
++#else
++    #define BOOT_CODE           0x0000000
++    #define BOOT_FLAGS          0x0000f00
++    #define INT_REG_CPT_ADDR    0x0001000
++    #define FLOAT_REG_CPT_ADDR  0x0001100
++    #define PC_CPT_ADDR         0x0001200
++    #define CSR_CPT_ADDR        0x0001300
++    #define BOOT2_CODE          0x0010000
++    #define SIM_DEVICE_ADDR     0x0080000
++    #define RESET_VECTOR        0x00a0000
++
++    #define CLINT_MMIO          0x38000000
++#endif
++
++
++
++
++
+ #define CLINT_MTIMECMP 0x4000
+ #define CLINT_MTIME 0xBFF8
+-
+-#define RESTORE_C910_RTL 1
+-//#define RESTORE_A710_RTL 1
+-#endif //__RESTORE_ROM_ADDR__
++#endif 
+diff --git a/resource/gcpt_restore/build/gcpt b/resource/gcpt_restore/build/gcpt
+deleted file mode 100755
+index 1cbf3a5..0000000
+Binary files a/resource/gcpt_restore/build/gcpt and /dev/null differ
+diff --git a/resource/gcpt_restore/build/gcpt.bin b/resource/gcpt_restore/build/gcpt.bin
+deleted file mode 100755
+index 64408c9..0000000
+Binary files a/resource/gcpt_restore/build/gcpt.bin and /dev/null differ
+diff --git a/resource/gcpt_restore/build/gcpt.txt b/resource/gcpt_restore/build/gcpt.txt
+deleted file mode 100644
+index af2979c..0000000
+--- a/resource/gcpt_restore/build/gcpt.txt
++++ /dev/null
+@@ -1,243 +0,0 @@
+-
+-build/gcpt:     file format elf64-littleriscv
+-
+-
+-Disassembly of section .restore.code:
+-
+-0000000000000000 <boot_decide_vector>:
+-   0:	00001437          	lui	s0,0x1
+-   4:	f004041b          	addiw	s0,s0,-256
+-   8:	00043303          	ld	t1,0(s0) # 1000 <restore_int_vector+0xcf8>
+-   c:	0000c3b7          	lui	t2,0xc
+-  10:	eef3839b          	addiw	t2,t2,-273
+-  14:	00730463          	beq	t1,t2,1c <restore_csr_vector>
+-  18:	7e99f06f          	j	a0000 <restore_int_vector+0x9fcf8>
+-
+-000000000000001c <restore_csr_vector>:
+-  1c:	000012b7          	lui	t0,0x1
+-  20:	3002829b          	addiw	t0,t0,768
+-  24:	00300393          	li	t2,3
+-  28:	00339393          	slli	t2,t2,0x3
+-  2c:	007283b3          	add	t2,t0,t2
+-  30:	0003b303          	ld	t1,0(t2) # c000 <restore_int_vector+0xbcf8>
+-  34:	00331073          	fscsr	t1
+-  38:	30000393          	li	t2,768
+-  3c:	00339393          	slli	t2,t2,0x3
+-  40:	007283b3          	add	t2,t0,t2
+-  44:	0003b303          	ld	t1,0(t2)
+-  48:	30031073          	csrw	mstatus,t1
+-  4c:	30100393          	li	t2,769
+-  50:	00339393          	slli	t2,t2,0x3
+-  54:	007283b3          	add	t2,t0,t2
+-  58:	0003b303          	ld	t1,0(t2)
+-  5c:	30131073          	csrw	misa,t1
+-  60:	30200393          	li	t2,770
+-  64:	00339393          	slli	t2,t2,0x3
+-  68:	007283b3          	add	t2,t0,t2
+-  6c:	0003b303          	ld	t1,0(t2)
+-  70:	30231073          	csrw	medeleg,t1
+-  74:	30300393          	li	t2,771
+-  78:	00339393          	slli	t2,t2,0x3
+-  7c:	007283b3          	add	t2,t0,t2
+-  80:	0003b303          	ld	t1,0(t2)
+-  84:	30331073          	csrw	mideleg,t1
+-  88:	30400393          	li	t2,772
+-  8c:	00339393          	slli	t2,t2,0x3
+-  90:	007283b3          	add	t2,t0,t2
+-  94:	0003b303          	ld	t1,0(t2)
+-  98:	30431073          	csrw	mie,t1
+-  9c:	30500393          	li	t2,773
+-  a0:	00339393          	slli	t2,t2,0x3
+-  a4:	007283b3          	add	t2,t0,t2
+-  a8:	0003b303          	ld	t1,0(t2)
+-  ac:	30531073          	csrw	mtvec,t1
+-  b0:	30600393          	li	t2,774
+-  b4:	00339393          	slli	t2,t2,0x3
+-  b8:	007283b3          	add	t2,t0,t2
+-  bc:	0003b303          	ld	t1,0(t2)
+-  c0:	30631073          	csrw	mcounteren,t1
+-  c4:	34000393          	li	t2,832
+-  c8:	00339393          	slli	t2,t2,0x3
+-  cc:	007283b3          	add	t2,t0,t2
+-  d0:	0003b303          	ld	t1,0(t2)
+-  d4:	34031073          	csrw	mscratch,t1
+-  d8:	34100393          	li	t2,833
+-  dc:	00339393          	slli	t2,t2,0x3
+-  e0:	007283b3          	add	t2,t0,t2
+-  e4:	0003b303          	ld	t1,0(t2)
+-  e8:	34131073          	csrw	mepc,t1
+-  ec:	34200393          	li	t2,834
+-  f0:	00339393          	slli	t2,t2,0x3
+-  f4:	007283b3          	add	t2,t0,t2
+-  f8:	0003b303          	ld	t1,0(t2)
+-  fc:	34231073          	csrw	mcause,t1
+- 100:	34300393          	li	t2,835
+- 104:	00339393          	slli	t2,t2,0x3
+- 108:	007283b3          	add	t2,t0,t2
+- 10c:	0003b303          	ld	t1,0(t2)
+- 110:	34331073          	csrw	mtval,t1
+- 114:	34400393          	li	t2,836
+- 118:	00339393          	slli	t2,t2,0x3
+- 11c:	007283b3          	add	t2,t0,t2
+- 120:	0003b303          	ld	t1,0(t2)
+- 124:	34431073          	csrw	mip,t1
+- 128:	3a000393          	li	t2,928
+- 12c:	00339393          	slli	t2,t2,0x3
+- 130:	007283b3          	add	t2,t0,t2
+- 134:	0003b303          	ld	t1,0(t2)
+- 138:	3a031073          	csrw	pmpcfg0,t1
+- 13c:	3b000393          	li	t2,944
+- 140:	00339393          	slli	t2,t2,0x3
+- 144:	007283b3          	add	t2,t0,t2
+- 148:	0003b303          	ld	t1,0(t2)
+- 14c:	3b031073          	csrw	pmpaddr0,t1
+- 150:	3b100393          	li	t2,945
+- 154:	00339393          	slli	t2,t2,0x3
+- 158:	007283b3          	add	t2,t0,t2
+- 15c:	0003b303          	ld	t1,0(t2)
+- 160:	3b131073          	csrw	pmpaddr1,t1
+- 164:	3b200393          	li	t2,946
+- 168:	00339393          	slli	t2,t2,0x3
+- 16c:	007283b3          	add	t2,t0,t2
+- 170:	0003b303          	ld	t1,0(t2)
+- 174:	3b231073          	csrw	pmpaddr2,t1
+- 178:	3b300393          	li	t2,947
+- 17c:	00339393          	slli	t2,t2,0x3
+- 180:	007283b3          	add	t2,t0,t2
+- 184:	0003b303          	ld	t1,0(t2)
+- 188:	3b331073          	csrw	pmpaddr3,t1
+- 18c:	10500393          	li	t2,261
+- 190:	00339393          	slli	t2,t2,0x3
+- 194:	007283b3          	add	t2,t0,t2
+- 198:	0003b303          	ld	t1,0(t2)
+- 19c:	10531073          	csrw	stvec,t1
+- 1a0:	10600393          	li	t2,262
+- 1a4:	00339393          	slli	t2,t2,0x3
+- 1a8:	007283b3          	add	t2,t0,t2
+- 1ac:	0003b303          	ld	t1,0(t2)
+- 1b0:	10631073          	csrw	scounteren,t1
+- 1b4:	14000393          	li	t2,320
+- 1b8:	00339393          	slli	t2,t2,0x3
+- 1bc:	007283b3          	add	t2,t0,t2
+- 1c0:	0003b303          	ld	t1,0(t2)
+- 1c4:	14031073          	csrw	sscratch,t1
+- 1c8:	14100393          	li	t2,321
+- 1cc:	00339393          	slli	t2,t2,0x3
+- 1d0:	007283b3          	add	t2,t0,t2
+- 1d4:	0003b303          	ld	t1,0(t2)
+- 1d8:	14131073          	csrw	sepc,t1
+- 1dc:	14200393          	li	t2,322
+- 1e0:	00339393          	slli	t2,t2,0x3
+- 1e4:	007283b3          	add	t2,t0,t2
+- 1e8:	0003b303          	ld	t1,0(t2)
+- 1ec:	14231073          	csrw	scause,t1
+- 1f0:	14300393          	li	t2,323
+- 1f4:	00339393          	slli	t2,t2,0x3
+- 1f8:	007283b3          	add	t2,t0,t2
+- 1fc:	0003b303          	ld	t1,0(t2)
+- 200:	14331073          	csrw	stval,t1
+- 204:	18000393          	li	t2,384
+- 208:	00339393          	slli	t2,t2,0x3
+- 20c:	007283b3          	add	t2,t0,t2
+- 210:	0003b303          	ld	t1,0(t2)
+- 214:	18031073          	csrw	satp,t1
+- 218:	300022f3          	csrr	t0,mstatus
+- 21c:	00800313          	li	t1,8
+- 220:	005373b3          	and	t2,t1,t0
+- 224:	00439393          	slli	t2,t2,0x4
+- 228:	3003a073          	csrs	mstatus,t2
+- 22c:	30033073          	csrc	mstatus,t1
+- 230:	000022b7          	lui	t0,0x2
+- 234:	8002829b          	addiw	t0,t0,-2048
+- 238:	00843903          	ld	s2,8(s0)
+- 23c:	00b91313          	slli	t1,s2,0xb
+- 240:	00628063          	beq	t0,t1,240 <restore_csr_vector+0x224>
+- 244:	3002b073          	csrc	mstatus,t0
+- 248:	30032073          	csrs	mstatus,t1
+- 24c:	000062b7          	lui	t0,0x6
+- 250:	3002a073          	csrs	mstatus,t0
+- 254:	380042b7          	lui	t0,0x38004
+- 258:	01843303          	ld	t1,24(s0)
+- 25c:	0062b023          	sd	t1,0(t0) # 38004000 <restore_int_vector+0x38003cf8>
+- 260:	3800c2b7          	lui	t0,0x3800c
+- 264:	ff82829b          	addiw	t0,t0,-8
+- 268:	01043303          	ld	t1,16(s0)
+- 26c:	0062b023          	sd	t1,0(t0) # 3800c000 <restore_int_vector+0x3800bcf8>
+-
+-0000000000000270 <restore_float_vector>:
+- 270:	00001137          	lui	sp,0x1
+- 274:	1001011b          	addiw	sp,sp,256
+- 278:	00013007          	fld	ft0,0(sp) # 1000 <restore_int_vector+0xcf8>
+- 27c:	00813087          	fld	ft1,8(sp)
+- 280:	01013107          	fld	ft2,16(sp)
+- 284:	01813187          	fld	ft3,24(sp)
+- 288:	02013207          	fld	ft4,32(sp)
+- 28c:	02813287          	fld	ft5,40(sp)
+- 290:	03013307          	fld	ft6,48(sp)
+- 294:	03813387          	fld	ft7,56(sp)
+- 298:	04013407          	fld	fs0,64(sp)
+- 29c:	04813487          	fld	fs1,72(sp)
+- 2a0:	05013507          	fld	fa0,80(sp)
+- 2a4:	05813587          	fld	fa1,88(sp)
+- 2a8:	06013607          	fld	fa2,96(sp)
+- 2ac:	06813687          	fld	fa3,104(sp)
+- 2b0:	07013707          	fld	fa4,112(sp)
+- 2b4:	07813787          	fld	fa5,120(sp)
+- 2b8:	08013807          	fld	fa6,128(sp)
+- 2bc:	08813887          	fld	fa7,136(sp)
+- 2c0:	09013907          	fld	fs2,144(sp)
+- 2c4:	09813987          	fld	fs3,152(sp)
+- 2c8:	0a013a07          	fld	fs4,160(sp)
+- 2cc:	0a813a87          	fld	fs5,168(sp)
+- 2d0:	0b013b07          	fld	fs6,176(sp)
+- 2d4:	0b813b87          	fld	fs7,184(sp)
+- 2d8:	0c013c07          	fld	fs8,192(sp)
+- 2dc:	0c813c87          	fld	fs9,200(sp)
+- 2e0:	0d013d07          	fld	fs10,208(sp)
+- 2e4:	0d813d87          	fld	fs11,216(sp)
+- 2e8:	0e013e07          	fld	ft8,224(sp)
+- 2ec:	0e813e87          	fld	ft9,232(sp)
+- 2f0:	0f013f07          	fld	ft10,240(sp)
+- 2f4:	0f813f87          	fld	ft11,248(sp)
+-
+-00000000000002f8 <restore_pc_vector>:
+- 2f8:	000012b7          	lui	t0,0x1
+- 2fc:	2002829b          	addiw	t0,t0,512
+- 300:	0002b283          	ld	t0,0(t0) # 1000 <restore_int_vector+0xcf8>
+- 304:	34129073          	csrw	mepc,t0
+-
+-0000000000000308 <restore_int_vector>:
+- 308:	00001137          	lui	sp,0x1
+- 30c:	00813083          	ld	ra,8(sp) # 1008 <restore_int_vector+0xd00>
+- 310:	01813183          	ld	gp,24(sp)
+- 314:	02013203          	ld	tp,32(sp)
+- 318:	02813283          	ld	t0,40(sp)
+- 31c:	03013303          	ld	t1,48(sp)
+- 320:	03813383          	ld	t2,56(sp)
+- 324:	04013403          	ld	s0,64(sp)
+- 328:	04813483          	ld	s1,72(sp)
+- 32c:	05013503          	ld	a0,80(sp)
+- 330:	05813583          	ld	a1,88(sp)
+- 334:	06013603          	ld	a2,96(sp)
+- 338:	06813683          	ld	a3,104(sp)
+- 33c:	07013703          	ld	a4,112(sp)
+- 340:	07813783          	ld	a5,120(sp)
+- 344:	08013803          	ld	a6,128(sp)
+- 348:	08813883          	ld	a7,136(sp)
+- 34c:	09013903          	ld	s2,144(sp)
+- 350:	09813983          	ld	s3,152(sp)
+- 354:	0a013a03          	ld	s4,160(sp)
+- 358:	0a813a83          	ld	s5,168(sp)
+- 35c:	0b013b03          	ld	s6,176(sp)
+- 360:	0b813b83          	ld	s7,184(sp)
+- 364:	0c013c03          	ld	s8,192(sp)
+- 368:	0c813c83          	ld	s9,200(sp)
+- 36c:	0d013d03          	ld	s10,208(sp)
+- 370:	0d813d83          	ld	s11,216(sp)
+- 374:	0e013e03          	ld	t3,224(sp)
+- 378:	0e813e83          	ld	t4,232(sp)
+- 37c:	0f013f03          	ld	t5,240(sp)
+- 380:	0f813f83          	ld	t6,248(sp)
+- 384:	01013103          	ld	sp,16(sp)
+- 388:	30200073          	mret
+- 38c:	00000013          	nop
+diff --git a/resource/gcpt_restore/build/obj/src/restore.d b/resource/gcpt_restore/build/obj/src/restore.d
+deleted file mode 100644
+index 12311dd..0000000
+--- a/resource/gcpt_restore/build/obj/src/restore.d
++++ /dev/null
+@@ -1,2 +0,0 @@
+-build/obj/src/restore.o: src/restore.S src/restore_rom_addr.h \
+- src/encoding.h src/csr.h
+diff --git a/resource/gcpt_restore/build/obj/src/restore.o b/resource/gcpt_restore/build/obj/src/restore.o
+deleted file mode 100644
+index d62c5c9..0000000
+Binary files a/resource/gcpt_restore/build/obj/src/restore.o and /dev/null differ
+diff --git a/resource/simpoint/simpoint_repo/bin/simpoint b/resource/simpoint/simpoint_repo/bin/simpoint
+old mode 100644
+new mode 100755
+diff --git a/resource/softfloat/build/softfloat.a b/resource/softfloat/build/softfloat.a
+deleted file mode 100644
+index f89bbb2..0000000
+Binary files a/resource/softfloat/build/softfloat.a and /dev/null differ
+diff --git a/resource/softfloat/build/softfloat.a b/resource/softfloat/build/softfloat.a
+new file mode 120000
+index 0000000..5891d73
+--- /dev/null
++++ b/resource/softfloat/build/softfloat.a
+@@ -0,0 +1 @@
++/home/e0005120/nemu_linux/simpoint_nemu/resource/softfloat/repo/build/Linux-x86_64-GCC/softfloat.a
+\ No newline at end of file
+diff --git a/src/checkpoint/serializer.cpp b/src/checkpoint/serializer.cpp
+index 703e8e0..a687bb8 100755
+--- a/src/checkpoint/serializer.cpp
++++ b/src/checkpoint/serializer.cpp
+@@ -49,7 +49,6 @@ extern bool log_enable();
+ 
+ void Serializer::serializePMem(uint64_t inst_count) {
+   // We must dump registers before memory to store them in the Generic Arch CPT
+-  //printf("--->>> void Serializer::serializePMem(uint64_t inst_count).\n");
+   assert(regDumped);
+   const size_t PMEM_SIZE = CONFIG_MSIZE;
+   uint8_t *pmem = get_pmem();
+@@ -237,19 +236,19 @@ bool Serializer::shouldTakeCpt(uint64_t num_insts) {
+       uint64_t next_point = simpoint2Weights.begin()->first * intervalSize;
+       //uint64_t next_point = simpoint2Weights.begin()->first * intervalSize + 100000;
+       if (num_insts >= next_point) {
+-          Log("lico1 Should take cpt now: %lu", num_insts);
++          Log("Should take cpt now: %lu", num_insts);
+           return true;
+       } else if (num_insts % intervalSize == 0) {
+-          Log("lico2 First cpt @ %lu, now: %lu",
++          Log("First cpt @ %lu, now: %lu",
+                   next_point, num_insts);
+       }
+   } else if (checkpoint_taking && recvd_manual_oneshot_cpt){
+-    Log("lico3 Take manual cpt now: %lu", num_insts);
++    Log("Take manual cpt now: %lu", num_insts);
+     return true;
+ 
+   } else if (checkpoint_taking && profiling_started){
+       if (num_insts >= nextUniformPoint) {
+-          Log("lico4 Should take cpt now: %lu", num_insts);
++          Log("Should take cpt now: %lu", num_insts);
+           return true;
+       }
+   }
+@@ -259,10 +258,8 @@ bool Serializer::shouldTakeCpt(uint64_t num_insts) {
+ void Serializer::notify_taken(uint64_t i) {
+   Log("Taking checkpoint @ instruction count %lu", i);
+   if (profiling_state == SimpointCheckpointing) {
+-  //  Log("lico --->>> simpoint() 01");
+     simpoint2Weights.erase(simpoint2Weights.begin());
+     if (!simpoint2Weights.empty()) {
+-//	Log("lico --->>> simpoint() 02");
+         pathManager.incCptID();
+     } else {
+       Log("All the checkpoints have been taken, exit...");
+diff --git a/src/cpu/cpu-exec.c b/src/cpu/cpu-exec.c
+index 89c2c58..7c74bb7 100644
+--- a/src/cpu/cpu-exec.c
++++ b/src/cpu/cpu-exec.c
+@@ -351,10 +351,8 @@ static void update_global() {
+ 
+ /* Simulate how the CPU works. */
+ void cpu_exec(uint64_t n) {
+-  //printf("--->>> cpu_exec()\n");
+   IFDEF(CONFIG_SHARE, assert(n <= 1));
+   g_print_step = (n < MAX_INSTR_TO_PRINT);
+-//  printf("	-> lico001\n");
+   switch (nemu_state.state) {
+     case NEMU_END: case NEMU_ABORT:
+       printf("Program execution has ended. To restart the program, exit NEMU and run again.\n");
+@@ -363,73 +361,55 @@ void cpu_exec(uint64_t n) {
+       nemu_state.state = NEMU_RUNNING;
+       Loge("Setting NEMU state to RUNNING");
+   }
+-//  printf("      -> lico002\n");
+   uint64_t timer_start = get_time();
+- // printf("      -> lico002 -1\n");
+   n_remain_total = n; // deal with setjmp()
+   Loge("cpu_exec will exec %lu instrunctions", n_remain_total);
+   int cause;
+- // printf("      -> lico002 -2\n");
+   if ((cause = setjmp(jbuf_exec))) {
+     n_remain -= prev_s->idx_in_bb - 1;
+     // Here is exception handle
+ #ifdef CONFIG_PERF_OPT
+- //   printf("      -> lico002 -3\n");
+     update_global();
+ #endif
+- //   printf("      -> lico002 -4\n");
+     Loge("After update_global, n_remain: %i, n_remain_total: %li", n_remain, n_remain_total);
+   }
+-//  printf("      -> lico003\n");
+   while (nemu_state.state == NEMU_RUNNING &&
+       MUXDEF(CONFIG_ENABLE_INSTR_CNT, n_remain_total > 0, true)) {
+ #ifdef CONFIG_DEVICE
+     extern void device_update();
+-  //  printf("      -> lico003 -1\n");
+     device_update();
+-   // printf("      -> lico003 -2\n");
+ #endif
+-   // printf("      -> lico004 -1\n");
+     if (cause == NEMU_EXEC_EXCEPTION) {
+-    //  printf("      -> lico004 -2\n");
+       Loge("Handle NEMU_EXEC_EXCEPTION");
+       cause = 0;
+       cpu.pc = raise_intr(g_ex_cause, prev_s->pc);
+       IFDEF(CONFIG_PERF_OPT, tcache_handle_exception(cpu.pc));
+       IFDEF(CONFIG_SHARE, break);
+     } else {
+-  //    printf("      -> lico004 -3\n");
+       word_t intr = MUXDEF(CONFIG_SHARE, INTR_EMPTY, isa_query_intr());
+       if (intr != INTR_EMPTY) {
+-//	printf("      -> lico004 -4\n");
+         Loge("NEMU raise intr");
+         cpu.pc = raise_intr(intr, cpu.pc);
+         IFDEF(CONFIG_DIFFTEST, ref_difftest_raise_intr(intr));
+         IFDEF(CONFIG_PERF_OPT, tcache_handle_exception(cpu.pc));
+       }
+     }
+-   // printf("      -> lico004 -5\n");
+     int n_batch = n_remain_total >= BATCH_SIZE ? BATCH_SIZE : n_remain_total;
+     n_remain = execute(n_batch);
+-   // printf("      -> lico004 -6\n");
+ #ifdef CONFIG_PERF_OPT
+     // return from execute
+     update_global(cpu.pc);
+-   // printf("      -> lico004 -7\n");
+     Loge("n_remain_total: %lu", n_remain_total);
+ #else
+     n_remain_total -= n_batch;
+ #endif
+   }
+- // printf("      -> lico004\n");
+   // If nemu_state.state is NEMU_RUNNING, n_remain_total should be zero.
+   if (nemu_state.state == NEMU_RUNNING) {
+     nemu_state.state = NEMU_QUIT;
+   }
+- // printf("      -> lico005\n");
+   uint64_t timer_end = get_time();
+   g_timer += timer_end - timer_start;
+- // printf("      -> lico006\n");
+   switch (nemu_state.state) {
+     case NEMU_RUNNING: nemu_state.state = NEMU_STOP;
+       Loge("NEMU stopped when running");
+@@ -450,9 +430,7 @@ void cpu_exec(uint64_t n) {
+       }
+       break;
+     case NEMU_QUIT:
+-     // printf("      -> lico007\n");
+ #ifndef CONFIG_SHARE
+-      //printf("      -> lico008\n");
+       monitor_statistic();
+       beta_on_exit();
+       extern char *mapped_cpt_file;  // defined in paddr.c
+@@ -463,7 +441,5 @@ void cpu_exec(uint64_t n) {
+ #else
+       break;
+ #endif
+-     // printf("      -> lico009\n");
+     }
+-  //printf("      -> lico010\n");
+ }
+diff --git a/src/device/device.c b/src/device/device.c
+index 57042b0..945dbc6 100755
+--- a/src/device/device.c
++++ b/src/device/device.c
+@@ -24,14 +24,11 @@ static void set_device_update_flag() {
+ }
+ 
+ void device_update() {
+- // printf("--->>> device_update()\n");
+   if (!device_update_flag) {
+     return;
+   }
+- // printf("--->>> device_update()  lico01\n");
+   device_update_flag = false;
+   IFDEF(CONFIG_HAS_VGA, vga_update_screen());
+-  //printf("--->>> device_update()  lico02\n");
+   SDL_Event event;
+   while (SDL_PollEvent(&event)) {
+     switch (event.type) {
+@@ -51,7 +48,6 @@ void device_update() {
+       default: break;
+     }
+   }
+-  //printf("--->>> device_update()  lico03\n");
+ }
+ 
+ void sdl_clear_event_queue() {
+diff --git a/src/device/uartlite.c b/src/device/uartlite.c
+index e955d1b..00ccdf9 100755
+--- a/src/device/uartlite.c
++++ b/src/device/uartlite.c
+@@ -3,7 +3,13 @@
+ 
+ #define CH_OFFSET 0
+ #define UARTLITE_RX_FIFO  0x0
+-#define UARTLITE_TX_FIFO  0x4
++
++#ifdef NEMU_SIM
++  #define UARTLITE_TX_FIFO  0x0
++#else
++  #define UARTLITE_TX_FIFO  0x4
++#endif
++
+ #define UARTLITE_STAT_REG 0x8
+ #define UARTLITE_CTRL_REG 0xc
+ 
+@@ -101,7 +107,11 @@ static void init_fifo() {
+ #endif
+ 
+ static void serial_io_handler(uint32_t offset, int len, bool is_write) {
+-  assert(len == 1);
++#ifdef NEMU_SIM
++   assert(len == 4);
++#else
++   assert(len == 1);
++#endif
+   switch (offset) {
+     /* We bind the serial port with the host stdout in NEMU. */
+     case UARTLITE_TX_FIFO:
+diff --git a/src/isa/riscv64/local-include/csr.h b/src/isa/riscv64/local-include/csr.h
+index 124c690..75f5147 100755
+--- a/src/isa/riscv64/local-include/csr.h
++++ b/src/isa/riscv64/local-include/csr.h
+@@ -30,7 +30,7 @@
+   f(satp       , 0x180) \
+   CUSTOM_CSR(f) \
+   f(fflags     , 0x001) f(frm        , 0x002) f(fcsr       , 0x003) \
+-  f(mtime      , 0xc01)
++  f(mtime      , 0xc01) f(cycle      , 0xc00) f(minstret   , 0xb02)
+ #else
+ #define CSRS(f) \
+   f(mstatus    , 0x300) f(misa       , 0x301) f(medeleg    , 0x302) f(mideleg    , 0x303) \
+@@ -370,6 +370,12 @@ CSR_STRUCT_END(fcsr)
+ CSR_STRUCT_START(mtime)
+ CSR_STRUCT_END(mtime)
+ 
++CSR_STRUCT_START(cycle)
++CSR_STRUCT_END(cycle)
++
++CSR_STRUCT_START(minstret)
++CSR_STRUCT_END(minstret)
++
+ #ifdef CONFIG_RVV_010
+ // TODO: implement these vcsr
+ #define IDXVSTART 0x008
+diff --git a/src/monitor/monitor.c b/src/monitor/monitor.c
+index 73916df..01dce2a 100755
+--- a/src/monitor/monitor.c
++++ b/src/monitor/monitor.c
+@@ -9,6 +9,8 @@
+ #include<signal.h>
+ #include<unistd.h>
+ 
++#define ECPT_GET_CHECKPOINT 0X80000000
++
+ #ifndef CONFIG_SHARE
+ void init_aligncheck();
+ void init_log(const char *log_file);
+@@ -42,7 +44,6 @@ static inline void welcome() {
+   Log("Build time: %s, %s", __TIME__, __DATE__);
+   printf("Welcome to \33[1;41m\33[1;33m%s\33[0m-NEMU!\n", ne_str(__ISA__));
+   printf("For help, type \"help\"\n");
+-  // printf("--->>> lico01\n");
+ }
+ 
+ void sig_handler(int signum) {
+@@ -224,12 +225,19 @@ static inline int parse_args(int argc, char *argv[]) {
+   }
+   return 0;
+ }
++#ifdef NEMU_SIM
++  #define RESTORER_START 0x80000000
++  #define SIM_DEVICE_ADDR 0x80000
++  #define MAX_RESTORER_SIZE 0x80000
++#else
++  #define RESTORER_START 0x0
++  #define SIM_DEVICE_ADDR 0x80000
++  #define MAX_RESTORER_SIZE 0x80000
++#endif
+ 
+-#define RESTORER_START 0
+-#define MAX_RESTORER_SIZE 0x80000
+ 
+ static void load_ecpt_restorer() {
+-  char restorer_file[0x80000];//size: SIM_DEVICE_ADDR
++  char restorer_file[SIM_DEVICE_ADDR];//size: SIM_DEVICE_ADDR
+   sprintf(restorer_file, "%s/resource/ecpt/build/ecpt.bin", getenv("NEMU_HOME"));
+ 
+   FILE *fp = fopen(restorer_file, "rb");
+@@ -323,14 +331,9 @@ void init_monitor(int argc, char *argv[]) {
+     // boot: jump to restorer --> restorer jump to bbl
+     assert(img_file != NULL);
+     assert(restorer != NULL);
+-    //printf("checkpoint_taking\n");
+     bbl_start = RESET_VECTOR + CONFIG_BBL_OFFSET_WITH_CPT;
+-    //bbl_start = 0xa0000;
+-    //printf("bbl_start = %X\n",bbl_start);
+     long restorer_size = load_img(restorer, "Gcpt restorer form cmdline", RESET_VECTOR, 0xf00);
+     long bbl_size = load_img(img_file, "image (bbl/bare metal app) from cmdline", bbl_start, 0);
+-    //long restorer_size = load_img(restorer, "Gcpt restorer form cmdline", 0x00000, 0xf00);
+-    //long bbl_size = load_img(img_file, "image (bbl/bare metal app) from cmdline", 0xa0000, 0);
+     img_size = restorer_size + bbl_size;
+   } else {
+     if (restorer != NULL) {
+@@ -355,8 +358,9 @@ void init_monitor(int argc, char *argv[]) {
+   //extern void init_tracer(const char *data_file, const char *inst_file);
+   //init_tracer(etrace_data, etrace_inst);
+ #endif
++if(CONFIG_MBASE == ECPT_GET_CHECKPOINT){
+   load_ecpt_restorer();
+-
++}
+   /* Compile the regular expressions. */
+   init_regex();
+ 
+diff --git a/src/monitor/ui.c b/src/monitor/ui.c
+index 852919f..a01f1f6 100755
+--- a/src/monitor/ui.c
++++ b/src/monitor/ui.c
+@@ -36,9 +36,7 @@ static char* rl_gets() {
+ }
+ 
+ static int cmd_c(char *args) {
+-  //printf("--->>> cmd_c()\n");
+   cpu_exec((args == NULL) ? -1 : (uint64_t) atol(args));
+-  //printf("<<<--- cmd_c()\n");
+   return 0;
+ }
+ 
+@@ -259,15 +257,11 @@ static int cmd_help(char *args) {
+ }
+ 
+ void ui_mainloop() {
+-	//printf("	lico02\n");
+   if (is_batch_mode()) {
+-   // printf("        lico02-1\n");
+     extern char *max_instr;
+     cmd_c(max_instr);
+-    //printf("        lico02-2\n");
+     return;
+   }
+-	//printf("        lico03\n");
+   for (char *str; (str = rl_gets()) != NULL; ) {
+     char *str_end = str + strlen(str);
+ 
+@@ -282,7 +276,6 @@ void ui_mainloop() {
+     if (args >= str_end) {
+       args = NULL;
+     }
+-//	printf("        lico03-1\n");
+ #ifdef CONFIG_DEVICE
+     extern void sdl_clear_event_queue();
+     sdl_clear_event_queue();
+@@ -298,6 +291,5 @@ void ui_mainloop() {
+ 
+     if (i == NR_CMD) { printf("Unknown command '%s'\n", cmd); }
+   }
+-  //	printf("        lico04\n");
+ }
+ #endif

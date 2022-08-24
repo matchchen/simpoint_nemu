@@ -24,14 +24,11 @@ static void set_device_update_flag() {
 }
 
 void device_update() {
- // printf("--->>> device_update()\n");
   if (!device_update_flag) {
     return;
   }
- // printf("--->>> device_update()  lico01\n");
   device_update_flag = false;
   IFDEF(CONFIG_HAS_VGA, vga_update_screen());
-  //printf("--->>> device_update()  lico02\n");
   SDL_Event event;
   while (SDL_PollEvent(&event)) {
     switch (event.type) {
@@ -51,7 +48,6 @@ void device_update() {
       default: break;
     }
   }
-  //printf("--->>> device_update()  lico03\n");
 }
 
 void sdl_clear_event_queue() {

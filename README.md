@@ -1,5 +1,10 @@
 2022/08/10
-modified tracing nemu for ecpt,it has been successfully tested on baremetal;
+1: modified tracing nemu for ecpt,it has been successfully tested on baremetal;
+
+2022/08/24
+1: add a new memory mapping for sim_rtl;
+2: modify ecpt Makefile for sim_rtl, "make CPU_ARCH=NEMU_SIM";
+
 
 ### Run baremetal app
 
@@ -18,5 +23,5 @@ modified tracing nemu for ecpt,it has been successfully tested on baremetal;
 3: get checkpoint
 
 ./build/riscv64-nemu-interpreter  ./hello_world.bin -b -D ./spec_cpt -w workloadName 
--C take_cpt -b -u -S ./spec_cpt/cluster/  --cpt-interval=1000 -r ./resource/ecpt/build/ecpt.bin
+-C take_cpt -S ./spec_cpt/cluster/  --cpt-interval=1000 -r ./resource/ecpt/build/ecpt.bin
 

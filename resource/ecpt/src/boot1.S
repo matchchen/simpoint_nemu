@@ -110,9 +110,9 @@ after_l2en:
   li x3, 0xe0000009
   csrs 0x7c3,x3 //mccr2
 
-#elif RESTORE_C910_FPGA
+#elif RESTORE_SIM_9_FPGA
 #todo
-#elif RESTORE_A710_RTL
+#elif RESTORE_SIM_RTL
   //Enable cpu performance
   li t0, 0x70013
   csrs 0x7c2,t0 //mcor
@@ -130,7 +130,7 @@ after_l2en:
   li t0, MSTATUS_FS | MSTATUS_XS
   csrs mstatus, t0
 #todo
-#elif RESTORE_A710_FPGA
+#elif RESTORE_SIM_FPGA
 #todo
 #else
 #endif

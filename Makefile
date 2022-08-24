@@ -1,7 +1,7 @@
 ifeq ($(wildcard $(NEMU_HOME)/src/nemu-main.c),)
   $(error NEMU_HOME=$(NEMU_HOME) is not a NEMU repo)
 endif
-
+CPU_ARCH := 
 -include $(NEMU_HOME)/include/config/auto.conf
 -include $(NEMU_HOME)/include/config/auto.conf.cmd
 
@@ -42,6 +42,10 @@ SRCS = $(SRCS-y)
 DIRS-cpp = src/checkpoint src/base src/iostream3 src/profiling
 DIRS-y += src/profiling src/checkpoint # profiling.c and cpt_env.c
 XSRCS = $(shell find $(DIRS-cpp) -name "*.cpp")
+
+ifeq (${CPU_ARCH}, NEMU_SIM)
+  CFLAGS += -DNEMU_SIM=1
+endif
 
 CC = $(call remove_quote,$(CONFIG_CC))
 CXX = $(call remove_quote,$(CONFIG_CXX))

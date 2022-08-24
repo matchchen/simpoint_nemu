@@ -43,6 +43,7 @@ restore_csr_vector:
   li t0, MSTATUS_FS
   csrs  CSR_MSTATUS, t0
   #restore fcsr
+  li t0, CSR_CPT_ADDR
   CSRS_F(CSRS_RESTORE)
 
   # set mtime (inaccurate) and mtimecmp

@@ -36,9 +36,7 @@ static char* rl_gets() {
 }
 
 static int cmd_c(char *args) {
-  //printf("--->>> cmd_c()\n");
   cpu_exec((args == NULL) ? -1 : (uint64_t) atol(args));
-  //printf("<<<--- cmd_c()\n");
   return 0;
 }
 
@@ -259,15 +257,11 @@ static int cmd_help(char *args) {
 }
 
 void ui_mainloop() {
-	//printf("	lico02\n");
   if (is_batch_mode()) {
-   // printf("        lico02-1\n");
     extern char *max_instr;
     cmd_c(max_instr);
-    //printf("        lico02-2\n");
     return;
   }
-	//printf("        lico03\n");
   for (char *str; (str = rl_gets()) != NULL; ) {
     char *str_end = str + strlen(str);
 
@@ -282,7 +276,6 @@ void ui_mainloop() {
     if (args >= str_end) {
       args = NULL;
     }
-//	printf("        lico03-1\n");
 #ifdef CONFIG_DEVICE
     extern void sdl_clear_event_queue();
     sdl_clear_event_queue();
@@ -298,6 +291,5 @@ void ui_mainloop() {
 
     if (i == NR_CMD) { printf("Unknown command '%s'\n", cmd); }
   }
-  //	printf("        lico04\n");
 }
 #endif
