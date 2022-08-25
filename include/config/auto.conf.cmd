@@ -3,7 +3,7 @@ deps_config := \
 	src/memory/Kconfig \
 	src/isa/riscv64/Kconfig \
 	src/isa/x86/Kconfig \
-	/home/e0005120/nemu_linux/simpoint_nemu/Kconfig
+	/home/user/ecpt/simpoint_nemu/Kconfig
 
 include/config/auto.conf: \
 	$(deps_config)

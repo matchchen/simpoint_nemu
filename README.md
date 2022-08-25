@@ -4,7 +4,7 @@
 2022/08/24
 1: add a new memory mapping for sim_rtl;
 2: modify ecpt Makefile for sim_rtl;
-
+3: deleting intermediate files;
 
 ### Run baremetal app
 
