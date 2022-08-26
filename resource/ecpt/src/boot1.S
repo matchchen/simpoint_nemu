@@ -12,14 +12,6 @@ init_early:
   li   x3, 0x400000
   csrs 0x7c0,x3 //mxstatus
 
-# enable fpu
-  li   x3, 0x6000
-  csrs mstatus,x3
-
-# enable vector
-  li   x3, 0x800000
-  csrs mstatus,x3
-
 # enable unalign
   li   x3, 0x8000
   csrs 0x7c0,x3 //mxstatus
@@ -30,6 +22,15 @@ init_early:
 
 # msmpr
   csrsi 0x7f3, 0x1 //msmpr
+#endif
+
+# enable fpu
+  li   x3, 0x6000
+  csrs mstatus,x3
+
+# enable vector
+  li   x3, 0x800000
+  csrs mstatus,x3
 
 # PART 1: initialize all registers
   li  x1, 0
@@ -66,9 +67,8 @@ init_early:
 
 ## PART 2: initialize stack pointer & ppn
   csrr x3,mhartid
-  li x4,1
+  bnez  x3, slave_harts
 
-bgtz x3,slave_harts 
 
   .global cpu_0_sp
 cpu_0_sp:
@@ -82,6 +82,7 @@ cpu_0_sp:
   li   x3, 0x8
   csrs mstatus,x3
 
+#if RESTORE_C910_RTL
   # invalid all memory for IBP,BTB,BHT,DCACHE,ICACHE
   li x3, 0x70013
   csrs 0x7c2,x3  #mcor
@@ -114,8 +115,6 @@ after_l2en:
   # enable FPU and accelerator if present
   li t0, MSTATUS_FS | MSTATUS_XS
   csrs mstatus, t0
-#todo
-#else
 #endif
   j BOOT2_CODE
 

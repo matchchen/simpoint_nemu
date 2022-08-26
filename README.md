@@ -1,14 +1,21 @@
-2022/08/10
-1: modified tracing nemu for ecpt,it has been successfully tested on baremetal;
+# 2022/08/10
+1: modified tracing nemu for ecpt;  
 
-2022/08/24
-1: add a new memory mapping for sim_rtl;
-2: modify ecpt Makefile for sim_rtl;
-3: deleting intermediate files;
+# 2022/08/24
+1: add a new memory mapping for sim_rtl;  
+2: modify ecpt Makefile for sim_rtl;  
+
+# 2022/08/26
+1: modified multi-core initialization in 'boot1.S' file;  
+2: update README.md;  
+
+
+
 
 ### Run baremetal app
 
-1: profile workload;
+1: "profile workload"  
+You need to configure the memory map by running "make menuconfig", and compile NEMU by running "make CPU_ARCH=workload"
 
 ./build/riscv64-nemu-interpreter -b ./hello_world.bin -D spec_cpt/ -w workloadName 
 -C run_spec --simpoint-profile --cpt-interval 1000
