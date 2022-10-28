@@ -10,6 +10,8 @@
 #include <unistd.h>
 #include <profiling/betapoint-ext.h>
 #include <roaring/roaring.h>
+#include <isa.h>
+#include "../isa/riscv64/local-include/csr.h"
 
 /* The assembly code of instructions executed is only output to the screen
  * when the number of instructions executed is less than this value.
@@ -29,6 +31,7 @@ static uint64_t g_timer = 0; // unit: us
 static bool g_print_step = false;
 const rtlreg_t rzero = 0;
 rtlreg_t tmp_reg[4];
+FILE* debug_fd = NULL;
 
 #ifdef CONFIG_DEBUG
 static inline void debug_hook(vaddr_t pc, const char *asmbuf) {
@@ -228,13 +231,16 @@ static int execute(int n) {
   __attribute__((unused)) Decode *this_s = NULL;
   __attribute__((unused)) bool br_taken = false;
   __attribute__((unused)) bool is_ctrl = false;
+  minstret->val ++;
+ // fprintf(debug_fd, "now=%ld,minstret=%ld,mepc=0x%lx,mcause=0x%lx,sepc=0x%lx,scause=0x%lx,pc=0x%lx,ra=0x%lx\r\n", get_time(),minstret->val,mepc->val,mcause->val,sepc->val,scause->val,s->pc,cpu.gpr[1]._64);
+    fprintf(debug_fd, "now=%ld,minstret=%ld,mepc=0x%lx,mcause=0x%lx,sepc=0x%lx,scause=0x%lx,pc=0x%lx,ra=0x%lx,sp=0x%lx\r\n", get_time(),minstret->val,mepc->val,mcause->val,sepc->val,scause->val,s->pc,cpu.gpr[1]._64,cpu.gpr[2]._64);
   while (true) {
 #if defined(CONFIG_DEBUG) || defined(CONFIG_DIFFTEST) || defined(CONFIG_IQUEUE)
     this_s = s;
 #endif
     __attribute__((unused)) rtlreg_t ls0, ls1, ls2;
     br_taken = false;
-
+    
     goto *(s->EHelper);
 
 #undef s0
@@ -245,9 +251,12 @@ static int execute(int n) {
 #define s2 &ls2
 
 #include "isa-exec.h"
+// #include <isa.h>
+// #include "../isa/riscv64/local-include/csr.h"
 
 def_EHelper(nemu_decode) {
   s = tcache_decode(s);
+  // fprintf(debug_fd, "now=%ld,g_nr_guest_instr=%ld,mepc=0x%lx,mcause=0x%lx,sepc=0x%lx,scause=0x%lx,pc=0x%lx,ra=0x%lx\r\n", get_time(),g_nr_guest_instr,mepc->val,mcause->val,sepc->val,scause->val,s->pc,cpu.gpr[1]._64);
   continue;
 }
 
@@ -268,6 +277,10 @@ end_of_bb:
     // Here is per inst action
     // Because every instruction executed goes here, don't put Log here to improve performance
     def_finish();
+    minstret->val ++;
+    fprintf(debug_fd, "now=%ld,minstret=%ld,mepc=0x%lx,mcause=0x%lx,sepc=0x%lx,scause=0x%lx,pc=0x%lx,ra=0x%lx,sp=0x%lx\r\n", get_time(),minstret->val,mepc->val,mcause->val,sepc->val,scause->val,s->pc,cpu.gpr[1]._64,cpu.gpr[2]._64);
+    //fprintf(debug_fd, "now=%ld,minstret=%ld,mepc=0x%lx,mcause=0x%lx,sepc=0x%lx,scause=0x%lx,pc=0x%lx,ra=0x%lx\r\n", get_time(),minstret->val,mepc->val,mcause->val,sepc->val,scause->val,s->pc,cpu.gpr[1]._64);
+
 
 #ifdef CONFIG_DATAFLOW_PROF
     Logti("prev pc = 0x%lx, pc = 0x%lx, is_ctrl: %i, prev dst: %u, dst: %u", prev_s->pc, s->pc, is_ctrl,
@@ -365,6 +378,7 @@ void cpu_exec(uint64_t n) {
   n_remain_total = n; // deal with setjmp()
   Loge("cpu_exec will exec %lu instrunctions", n_remain_total);
   int cause;
+  debug_fd = fopen("./build/nemu.debug", "w");
   if ((cause = setjmp(jbuf_exec))) {
     n_remain -= prev_s->idx_in_bb - 1;
     // Here is exception handle
@@ -408,6 +422,7 @@ void cpu_exec(uint64_t n) {
   if (nemu_state.state == NEMU_RUNNING) {
     nemu_state.state = NEMU_QUIT;
   }
+  fclose(debug_fd);
   uint64_t timer_end = get_time();
   g_timer += timer_end - timer_start;
   switch (nemu_state.state) {
