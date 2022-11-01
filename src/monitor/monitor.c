@@ -322,16 +322,16 @@ void init_monitor(int argc, char *argv[]) {
       load_img(img_file, "Gcpt file form cmdline", RESET_VECTOR, 0);
     }
     if (restorer) {
-      load_img(restorer, "Gcpt restorer form cmdline", RESET_VECTOR, 0xf00);
+      load_img(restorer, "Gcpt restorer form cmdline", RESET_VECTOR-0xa0000, 0xf00);
     }
 
-  } else if (checkpoint_taking) {
+  } else if (checkpoint_taking){ 
     // boot: jump to restorer --> restorer jump to bbl
     assert(img_file != NULL);
     assert(restorer != NULL);
-    bbl_start = RESET_VECTOR + CONFIG_BBL_OFFSET_WITH_CPT;
-    long restorer_size = load_img(restorer, "Gcpt restorer form cmdline", RESET_VECTOR, 0xf00);
-    long bbl_size = load_img(img_file, "image (bbl/bare metal app) from cmdline", bbl_start, 0);
+    bbl_start = 0x800a0000;
+	long restorer_size = load_img(restorer, "Gcpt restorer form cmdline", 0x800a0000, 0xf00);
+	long bbl_size = load_img(img_file, "image (bbl/bare metal app) from cmdline", bbl_start, 0);
     img_size = restorer_size + bbl_size;
   } else {
     if (restorer != NULL) {
@@ -356,9 +356,16 @@ void init_monitor(int argc, char *argv[]) {
   //extern void init_tracer(const char *data_file, const char *inst_file);
   //init_tracer(etrace_data, etrace_inst);
 #endif
-if(CONFIG_MBASE == RESTORER_START){
+#ifdef STEP_GETCP
   load_ecpt_restorer();
+#endif
+/*
+if(CONFIG_MBASE == RESTORER_START){
+  #ifdef STEP_RESTORE	
+    load_ecpt_restorer();
+  #endif
 }
+*/
   /* Compile the regular expressions. */
   init_regex();
 

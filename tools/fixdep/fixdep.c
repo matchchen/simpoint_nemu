@@ -293,8 +293,11 @@ static void *read_file(const char *filename)
 /* Ignore certain dependencies */
 static int is_ignored_file(const char *s, int len)
 {
-	return str_ends_with(s, len, "include/generated/autoconf.h") ||
-	       str_ends_with(s, len, "include/generated/autoksyms.h");
+	#ifdef GETCP
+        return str_ends_with(s, len, "include/generated/cp.autoconf.h") || str_ends_with(s, len, "include/generated/autoksyms.h");
+        #else
+        return str_ends_with(s, len, "include/generated/bbv.autoconf.h") || str_ends_with(s, len, "include/generated/autoksyms.h");
+        #endif
 }
 
 /*

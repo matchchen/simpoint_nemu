@@ -19,9 +19,11 @@ void init_isa() {
   init_csr();
 
 #ifndef CONFIG_RESET_FROM_MMIO
-  cpu.pc = RESET_VECTOR;
+  cpu.pc = RESET_VECTOR-0xa0000;
+  Log("lico2 will start from pc 0x%lx", cpu.pc);
 #else
   cpu.pc = CONFIG_MMIO_RESET_VECTOR;
+  Log("lico1 will start from pc 0x%lx", cpu.pc);
 #endif
 
   cpu.gpr[0]._64 = 0;
@@ -66,7 +68,10 @@ void init_isa() {
   IFNDEF(CONFIG_SHARE, init_clint());
   IFDEF(CONFIG_SHARE, init_device());
 
-#ifndef CONFIG_SHARE
+#ifndef CONFIG_SHAR
+#ifdef STEP_RESTORE 
+  cpu.pc=0x800000000
+#endif
   Log("NEMU will start from pc 0x%lx", cpu.pc);
 #endif
 }

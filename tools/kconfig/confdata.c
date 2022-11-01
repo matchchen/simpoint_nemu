@@ -220,15 +220,21 @@ static void conf_message(const char *fmt, ...)
 const char *conf_get_configname(void)
 {
 	char *name = getenv("KCONFIG_CONFIG");
-
+     //   #ifdef STEP_GETCP
+//	return name ? name : ".cp.config";
+//	#else
 	return name ? name : ".config";
+  //      #endif
 }
 
 static const char *conf_get_autoconfig_name(void)
 {
 	char *name = getenv("KCONFIG_AUTOCONFIG");
-
+    //    #ifdef STEP_GETCP
+//	return name ? name : "include/config/auto.cp.conf";
+//	#else
 	return name ? name : "include/config/auto.conf";
+  //      #endif
 }
 
 static int conf_set_sym_val(struct symbol *sym, int def, int def_flags, char *p)
@@ -1080,8 +1086,13 @@ int conf_write_autoconf(int overwrite)
 	fclose(out_h);
 
 	name = getenv("KCONFIG_AUTOHEADER");
-	if (!name)
-		name = "include/generated/autoconf.h";
+	if (!name){
+           #ifdef GETCP
+		name = "include/generated/cp.autoconf.h";
+           #else
+		name = "include/generated/bbv.autoconf.h";
+	   #endif
+	}
 	if (make_parent_dir(name))
 		return 1;
 	if (rename(".tmpconfig.h", name))

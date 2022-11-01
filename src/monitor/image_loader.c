@@ -53,7 +53,6 @@ long load_gz_img(const char *filename) {
 
 long load_img(char* img_name, char *which_img, uint64_t load_start, size_t img_size) {
   char *loading_img = img_name;
-  //load_start=0x00000;
   Log("Loading %s: %s\n", which_img, img_name);
   if (img_name == NULL) {
     Log("No image is given. Use the default build-in image/restorer.");
@@ -87,7 +86,11 @@ long load_img(char* img_name, char *which_img, uint64_t load_start, size_t img_s
 
   if (size < 512UL*1024UL*1024UL) {
     Log("Fread from file because less than 512MB\n");
+//    #ifdef GETCP
+ //   int ret = fread(guest_to_host(0x80000000), size, 1, fp);
+  //  #else
     int ret = fread(guest_to_host(load_start), size, 1, fp);
+   // #endif
     assert(ret == 1);
     fclose(fp);
 

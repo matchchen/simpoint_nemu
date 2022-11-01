@@ -231,9 +231,10 @@ static int execute(int n) {
   __attribute__((unused)) Decode *this_s = NULL;
   __attribute__((unused)) bool br_taken = false;
   __attribute__((unused)) bool is_ctrl = false;
+#ifdef 	STEP_RESTORE  
   minstret->val ++;
- // fprintf(debug_fd, "now=%ld,minstret=%ld,mepc=0x%lx,mcause=0x%lx,sepc=0x%lx,scause=0x%lx,pc=0x%lx,ra=0x%lx\r\n", get_time(),minstret->val,mepc->val,mcause->val,sepc->val,scause->val,s->pc,cpu.gpr[1]._64);
-    fprintf(debug_fd, "now=%ld,minstret=%ld,mepc=0x%lx,mcause=0x%lx,sepc=0x%lx,scause=0x%lx,pc=0x%lx,ra=0x%lx,sp=0x%lx\r\n", get_time(),minstret->val,mepc->val,mcause->val,sepc->val,scause->val,s->pc,cpu.gpr[1]._64,cpu.gpr[2]._64);
+  fprintf(debug_fd, "now=%ld,minstret=%ld,mepc=0x%lx,mcause=0x%lx,sepc=0x%lx,scause=0x%lx,pc=0x%lx,ra=0x%lx,sp=0x%lx\r\n", get_time(),minstret->val,mepc->val,mcause->val,sepc->val,scause->val,s->pc,cpu.gpr[1]._64,cpu.gpr[2]._64);
+#endif
   while (true) {
 #if defined(CONFIG_DEBUG) || defined(CONFIG_DIFFTEST) || defined(CONFIG_IQUEUE)
     this_s = s;
@@ -256,7 +257,6 @@ static int execute(int n) {
 
 def_EHelper(nemu_decode) {
   s = tcache_decode(s);
-  // fprintf(debug_fd, "now=%ld,g_nr_guest_instr=%ld,mepc=0x%lx,mcause=0x%lx,sepc=0x%lx,scause=0x%lx,pc=0x%lx,ra=0x%lx\r\n", get_time(),g_nr_guest_instr,mepc->val,mcause->val,sepc->val,scause->val,s->pc,cpu.gpr[1]._64);
   continue;
 }
 
@@ -277,10 +277,10 @@ end_of_bb:
     // Here is per inst action
     // Because every instruction executed goes here, don't put Log here to improve performance
     def_finish();
+#ifdef STEP_RESTORE
     minstret->val ++;
     fprintf(debug_fd, "now=%ld,minstret=%ld,mepc=0x%lx,mcause=0x%lx,sepc=0x%lx,scause=0x%lx,pc=0x%lx,ra=0x%lx,sp=0x%lx\r\n", get_time(),minstret->val,mepc->val,mcause->val,sepc->val,scause->val,s->pc,cpu.gpr[1]._64,cpu.gpr[2]._64);
-    //fprintf(debug_fd, "now=%ld,minstret=%ld,mepc=0x%lx,mcause=0x%lx,sepc=0x%lx,scause=0x%lx,pc=0x%lx,ra=0x%lx\r\n", get_time(),minstret->val,mepc->val,mcause->val,sepc->val,scause->val,s->pc,cpu.gpr[1]._64);
-
+#endif
 
 #ifdef CONFIG_DATAFLOW_PROF
     Logti("prev pc = 0x%lx, pc = 0x%lx, is_ctrl: %i, prev dst: %u, dst: %u", prev_s->pc, s->pc, is_ctrl,

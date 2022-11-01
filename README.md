@@ -9,7 +9,19 @@
 1: modified multi-core initialization in 'boot1.S' file;  
 2: update README.md;  
 
+# 2022/10/28
+1: add trace log to nemu;
+2: update README.md;
 
+# 2022/11/01
+1：modifying compilation parameters;
+2: update READE.md;
+step1: get BBV 
+	make ISA=riscv64 CPU_ARCH=NEMU_SIM
+step2：simpoint cluster
+	./simpoint~
+step3: get checkpoint
+	make ISA=riscv64 CPU_ARCH=NEMU_SIM  STEP_GETCP=Y STEP3=-DGETCP
 
 
 ### Run baremetal app

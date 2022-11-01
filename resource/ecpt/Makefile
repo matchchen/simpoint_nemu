@@ -20,7 +20,7 @@ INCLUDES  = $(addprefix -I, $(INC_DIR))
 CFLAGS   += -fno-PIE -mcmodel=medany -O2 -MMD -Wall -Werror $(INCLUDES)
 LINK_SCRIPT = restore.lds
 
-ifneq (${CPU_ARCH}, NEMU_SIM)
+ifeq (${CPU_ARCH}, NEMU_SIM)
   CFLAGS += -DNEMU_SIM=1
   LINK_SCRIPT = restore_sim_rtl.lds
 endif

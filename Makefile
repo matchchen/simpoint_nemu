@@ -2,15 +2,19 @@ ifeq ($(wildcard $(NEMU_HOME)/src/nemu-main.c),)
   $(error NEMU_HOME=$(NEMU_HOME) is not a NEMU repo)
 endif
 CPU_ARCH := 
--include $(NEMU_HOME)/include/config/auto.conf
--include $(NEMU_HOME)/include/config/auto.conf.cmd
+STEP_RESTORE :=
+STEP_GETCP :=
+CFLAGS = $(STEP3)
+  -include $(NEMU_HOME)/include/config/auto.conf
+  -include $(NEMU_HOME)/include/config/auto.conf.cmd
 
 DIRS-y = src/cpu src/monitor src/utils
 DIRS-$(CONFIG_MODE_SYSTEM) += src/memory
 
 remove_quote = $(patsubst "%",%,$(1))
 
-ISA    ?= $(if $(CONFIG_ISA),$(call remove_quote,$(CONFIG_ISA)),x86)
+#ISA    ?= $(if $(CONFIG_ISA),$(call remove_quote,$(CONFIG_ISA)),x86)
+ISA := riscv64
 CFLAGS += -D__ISA__=$(ISA)
 # CFLAGS += -g
 INC_DIR += $(NEMU_HOME)/src/isa/$(ISA)/include

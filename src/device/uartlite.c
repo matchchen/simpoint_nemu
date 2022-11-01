@@ -108,7 +108,7 @@ static void init_fifo() {
 
 static void serial_io_handler(uint32_t offset, int len, bool is_write) {
 #ifdef NEMU_SIM
-   assert(len == 4);
+   //assert(len == 4);
 #else
    assert(len == 1);
 #endif

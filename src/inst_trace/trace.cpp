@@ -1,8 +1,13 @@
 #include "inst_trace/inst_dep_record.pb.h"
 #include "inst_trace/packet.pb.h"
 #include "inst_trace/trace.h"
-#include <generated/autoconf.h>
+//#include <generated/autoconf.h>
 
+#ifdef GETCP
+#include <generated/cp.autoconf.h>
+#else
+#include <generated/bbv.autoconf.h>
+#endif
 
 void ElasticTrace::init(const char *data_file, const char *inst_file)
 {

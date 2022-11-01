@@ -6,7 +6,12 @@
 #include <assert.h>
 #include <string.h>
 
-#include <generated/autoconf.h>
+#ifdef GETCP
+#include <generated/cp.autoconf.h>
+#else
+#include <generated/bbv.autoconf.h>
+#endif
+
 #include <macro.h>
 
 #if CONFIG_MBASE + CONFIG_MSIZE > 0x100000000ul
